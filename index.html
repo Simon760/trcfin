@@ -78,6 +78,7 @@ input,select,button,textarea{font-family:inherit}
 table{width:100%;border-collapse:collapse}
 th{text-align:left;padding:10px 18px;font-size:10px;text-transform:uppercase;letter-spacing:.7px;color:var(--t3);font-weight:500;border-bottom:1px solid var(--border);background:var(--bg2)}
 td{padding:10px 18px;font-size:13px;border-bottom:1px solid var(--border)}
+td:not(:first-child){text-align:right}
 tr:last-child td{border-bottom:none}
 tr:hover td{background:var(--bg4)}
 .mono{font-family:'IBM Plex Mono',monospace;font-size:12px}
@@ -233,11 +234,11 @@ canvas{width:100%!important}
   <div class="row r2" id="mKpis"></div>
   <div class="tbl-wrap" id="budgetWrap">
     <div class="tbl-head"><div class="tbl-title">📋 Budget Prévisionnel</div><span style="font-size:11px;color:var(--t3)">Estimations du mois</span></div>
-    <table><thead><tr><th style="width:25%">Poste</th><th style="width:18%">AED</th><th style="width:18%">EUR</th><th style="width:14%">% Total</th></tr></thead><tbody id="budgetBody"></tbody><tfoot id="budgetFoot"></tfoot></table>
+    <table><thead><tr><th style="width:25%">Poste</th><th style="width:18%;text-align:right">AED</th><th style="width:18%;text-align:right">EUR</th><th style="width:14%;text-align:right">% Total</th></tr></thead><tbody id="budgetBody"></tbody><tfoot id="budgetFoot"></tfoot></table>
   </div>
   <div class="tbl-wrap" id="actualWrap">
     <div class="tbl-head"><div class="tbl-title">💸 Dépenses Réelles</div><span style="font-size:11px;color:var(--t3)">Montants effectifs</span></div>
-    <table><thead><tr><th style="width:20%">Poste</th><th style="width:15%">AED</th><th style="width:15%">EUR</th><th style="width:12%">Ratio</th><th style="width:15%">Écart EUR</th></tr></thead><tbody id="actualBody"></tbody><tfoot id="actualFoot"></tfoot></table>
+    <table><thead><tr><th style="width:20%">Poste</th><th style="width:15%;text-align:right">AED</th><th style="width:15%;text-align:right">EUR</th><th style="width:12%;text-align:right">Ratio</th><th style="width:15%;text-align:right">Écart EUR</th></tr></thead><tbody id="actualBody"></tbody><tfoot id="actualFoot"></tfoot></table>
   </div>
   <!-- Monthly Charts - below tables, compact -->
   <div class="month-charts" id="monthChartsArea">
@@ -256,7 +257,7 @@ canvas{width:100%!important}
       <button class="cur-btn" onclick="setDashCur('AED')">AED د.إ</button>
     </div>
   </div>
-  <div class="row r3" id="dashKpis"></div>
+  <div class="row r1" id="dashKpis" style="max-width:400px"></div>
   <div class="chart-box" style="margin-bottom:14px;height:320px"><div class="chart-head"><div class="chart-title">Dépenses & Revenus</div></div><canvas id="cEvo"></canvas></div>
   <div class="chart-box" style="margin-bottom:14px;height:320px"><div class="chart-head"><div class="chart-title">Solde Bancaire AED (MoM)</div></div><canvas id="cSolde"></canvas></div>
   <div class="row r2" style="margin-bottom:14px">
@@ -671,7 +672,7 @@ function renderTracker(){
 
   document.getElementById('mTabs').innerHTML=state.months.map(m=>
     `<button class="tab ${m.id===curMonth?'on':''}" onclick="curMonth='${m.id}';renderTracker()">${m.id}</button>`
-  ).join('')+`<button class="tab" style="color:var(--red)" onclick="deleteMonth()">✕ Suppr</button>`;
+  ).join('')+`<button class="btn btn-red" style="margin-left:8px;padding:6px 12px;font-size:12px" onclick="deleteMonth()">🗑 Supprimer ${curMonth}</button>`;
 
   const m=gm(curMonth);if(!m)return;
   const bE=sumEur(m,m.budget,m.extraBudget), aE=sumEur(m,m.actual,m.extraActual);
@@ -692,7 +693,7 @@ function renderTracker(){
       <input class="solde-input" type="number" value="${m.earn||0}" step="0.01" onchange="gm('${m.id}').earn=parseFloat(this.value)||0;save();renderTracker()"></div></div>
     <div class="solde-card"><div class="solde-icon">💸</div><div class="solde-info"><div class="solde-lbl">Dépenses du mois</div>
       <div class="solde-val">${f$(aE)} €</div></div></div>
-    <div class="solde-card"><div class="solde-icon">${diff>=0?'✅':'⚠️'}</div><div class="solde-info"><div class="solde-lbl">Earn − Spend</div>
+    <div class="solde-card"><div class="solde-icon">${diff>=0?'✅':'⚠️'}</div><div class="solde-info"><div class="solde-lbl">Revenus − Dépenses</div>
       <div class="solde-val ${diff>=0?'diff-pos':'diff-neg'}">${diff>=0?'+':''}${f$(diff)} €</div></div></div>
   `;
 
@@ -812,10 +813,6 @@ function renderDashboard(){
   document.getElementById('dashKpis').innerHTML=`
     <div class="card anim d1"><div class="card-line" style="background:var(--blue)"></div><div class="kpi-label">Total dépensé</div>
       <div class="kpi-val">${dcFmt(totalSpent,avgRate)}</div><div class="kpi-sub">Moy: ${dcFmt(avg,avgRate)}/mois</div></div>
-    <div class="card anim d2"><div class="card-line" style="background:var(--green)"></div><div class="kpi-label">Total revenus</div>
-      <div class="kpi-val">${dcFmt(totalEarn,avgRate)}</div></div>
-    <div class="card anim d3"><div class="card-line" style="background:${balance>=0?'var(--green)':'var(--red)'}"></div><div class="kpi-label">Balance</div>
-      <div class="kpi-val ${balance>=0?'diff-pos':'diff-neg'}">${balance>=0?'+':''}${dcFmt(balance,avgRate)}</div></div>
   `;
 
   const labels=ms.map(m=>m.id.slice(0,3));
