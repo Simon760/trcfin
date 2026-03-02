@@ -175,6 +175,12 @@ canvas{width:100%!important}
 .user-name{font-size:12px;font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .user-logout{background:none;border:none;color:var(--t3);cursor:pointer;font-size:14px;padding:2px;transition:color .15s}
 .user-logout:hover{color:var(--red)}
+
+/* Hide amounts mode */
+.amounts-hidden .mono,.amounts-hidden .kpi-val,.amounts-hidden .solde-val,.amounts-hidden .kpi-sub,.amounts-hidden .cell-input.eur,.amounts-hidden .side-footer-val{
+  color:transparent!important;text-shadow:0 0 12px rgba(255,255,255,.3);user-select:none}
+.amounts-hidden .solde-input{color:transparent!important;text-shadow:0 0 12px rgba(255,255,255,.3)}
+.amounts-hidden .diff-pos,.amounts-hidden .diff-neg{color:transparent!important;text-shadow:0 0 12px rgba(255,255,255,.3)}
 </style>
 </head>
 <body>
@@ -212,6 +218,7 @@ canvas{width:100%!important}
     <button class="nav-btn" data-pg="emmenagement" onclick="go('emmenagement')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Emménagement</button>
     <div class="nav-sep"></div>
     <button class="nav-btn" data-pg="settings" onclick="go('settings')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>Paramètres</button>
+    <button class="nav-btn" id="hideToggleBtn" onclick="toggleHideAmounts()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg><span id="hideToggleLabel">Masquer €</span></button>
   </nav>
   <div class="side-footer">
     <div class="side-footer-label">EUR / AED</div>
@@ -590,6 +597,13 @@ let state = loadStateLocal();
 let curMonth = state.months.length > 0 ? state.months[state.months.length-1].id : null;
 let dashCur = 'EUR';
 let charts = {};
+let hiddenMode = false;
+
+function toggleHideAmounts(){
+  hiddenMode=!hiddenMode;
+  document.getElementById('hideToggleLabel').textContent=hiddenMode?'Afficher €':'Masquer €';
+  document.body.classList.toggle('amounts-hidden',hiddenMode);
+}
 
 function loadState(){return loadStateLocal();}
 
@@ -974,7 +988,7 @@ function renderRevTracker(){
 
   document.getElementById('revTabs').innerHTML=MOIS_LIST.map(m=>{
     const hasData=rm[m]&&rm[m].length>0;
-    return `<button class="tab ${m===curRevMonth?'on':''}" onclick="curRevMonth='${m}';renderRevTracker()" style="${!hasData?'opacity:0.4':''}">${m.slice(0,3)}</button>`;
+    return `<button class="tab ${m===curRevMonth?'on':''}" onclick="curRevMonth='${m}';renderRevTracker()" style="color:${hasData?'#f2f2fa':'#6e6e8a'}">${m.slice(0,3)}</button>`;
   }).join('');
 
   const entries=rm[curRevMonth]||[];
