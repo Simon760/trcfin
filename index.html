@@ -208,6 +208,7 @@ canvas{width:100%!important}
   <nav class="nav">
     <button class="nav-btn on" data-pg="tracker" onclick="go('tracker')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Tracker Mensuel</button>
     <button class="nav-btn" data-pg="dashboard" onclick="go('dashboard')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>Dashboard</button>
+    <button class="nav-btn" data-pg="revenus" onclick="go('revenus')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>Revenus</button>
     <button class="nav-btn" data-pg="emmenagement" onclick="go('emmenagement')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Emménagement</button>
     <div class="nav-sep"></div>
     <button class="nav-btn" data-pg="settings" onclick="go('settings')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>Paramètres</button>
@@ -263,6 +264,67 @@ canvas{width:100%!important}
   <div class="row r2" style="margin-bottom:14px">
     <div class="chart-box"><div class="chart-head"><div class="chart-title">Répartition moyenne</div></div><canvas id="cPie" height="130"></canvas></div>
     <div class="chart-box"><div class="chart-head"><div class="chart-title">Total par poste de dépense</div></div><canvas id="cCatTotal" height="130"></canvas></div>
+  </div>
+</div>
+
+<!-- =========== REVENUS =========== -->
+<div class="pg" id="pg-revenus">
+  <div class="hdr">
+    <div><div class="hdr-title">Revenus 2026</div><div class="hdr-sub">Suivi des revenus par source</div></div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <div class="cur-toggle" id="revPageToggle">
+        <button class="cur-btn on" onclick="setRevPage('tracker')">Tracker</button>
+        <button class="cur-btn" onclick="setRevPage('global')">Vue Globale</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SUB-PAGE: TRACKER -->
+  <div id="revPgTracker">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div class="rev-tabs" id="revTabs" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+      <button class="btn btn-p btn-sm" onclick="openAddRevenu()">+ Nouveau revenu</button>
+    </div>
+    <div class="solde-row" id="revKpis"></div>
+    <div class="tbl-wrap">
+      <div class="tbl-head"><div class="tbl-title">💰 Transactions du mois</div></div>
+      <table><thead><tr><th style="width:12%">Date</th><th style="width:18%">Client</th><th style="width:14%">Catégorie</th><th style="width:13%;text-align:right">€ Contracté</th><th style="width:13%;text-align:right">€ Encaissé</th><th style="width:18%">Commentaire</th><th style="width:6%"></th></tr></thead>
+      <tbody id="revBody"></tbody><tfoot id="revFoot"></tfoot></table>
+    </div>
+    <div class="row r2" style="margin-top:14px" id="revChartsArea">
+      <div class="chart-box"><div class="chart-head"><div class="chart-title">Répartition par source</div></div><canvas id="cRevPie" height="140"></canvas></div>
+      <div class="chart-box"><div class="chart-head"><div class="chart-title">Revenus par mois</div></div><canvas id="cRevEvo" height="140"></canvas></div>
+    </div>
+  </div>
+
+  <!-- SUB-PAGE: VUE GLOBALE & PARAMÈTRES -->
+  <div id="revPgGlobal" style="display:none">
+    <div class="row r2" style="margin-bottom:14px">
+      <div class="card" style="padding:18px">
+        <div class="kpi-label" style="margin-bottom:12px">⚙️ Paramètres Revenus</div>
+        <div class="fg"><label class="fl">Objectif mensuel (€)</label><input class="fi" type="number" id="revObjMensuel" step="100" onchange="state.revenus.objectif=parseFloat(this.value)||5000;document.getElementById('revObjAnnuel').value=(state.revenus.objectif*12);save();renderRevGlobal()"></div>
+        <div class="fg"><label class="fl">Objectif annuel (€)</label><input class="fi" type="number" id="revObjAnnuel" step="1000" onchange="state.revenus.objectif=Math.round((parseFloat(this.value)||60000)/12);document.getElementById('revObjMensuel').value=state.revenus.objectif;save();renderRevGlobal()"></div>
+        <div class="fg" style="margin-top:10px"><label class="fl">Catégories de revenu</label>
+          <textarea class="fi" id="revCatsTA" rows="5" style="font-family:'IBM Plex Mono',monospace;font-size:12px" placeholder="Une catégorie par ligne"></textarea>
+        </div>
+        <button class="btn btn-p btn-sm" style="margin-top:8px" onclick="saveRevCats()">Sauvegarder catégories</button>
+      </div>
+      <div class="card" style="padding:18px">
+        <div class="kpi-label" style="margin-bottom:12px">📊 Résumé annuel 2026</div>
+        <div id="revGlobalKpis" style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:14px"></div>
+        <div id="revSourceSummary"></div>
+      </div>
+    </div>
+    <div class="tbl-wrap">
+      <div class="tbl-head"><div class="tbl-title">📅 Vue Globale — Mois par mois</div></div>
+      <table><thead><tr><th>Mois</th><th style="text-align:right">Objectif</th><th style="text-align:right">Contracté</th><th style="text-align:right">Encaissé</th><th style="text-align:right">Delta</th><th style="text-align:right">%</th><th style="text-align:right">vs M-1</th></tr></thead>
+      <tbody id="revAnnualBody"></tbody><tfoot id="revAnnualFoot"></tfoot></table>
+    </div>
+    <div class="row r2" style="margin-top:14px">
+      <div class="chart-box" style="height:280px"><div class="chart-head"><div class="chart-title">Encaissé vs Objectif</div></div><canvas id="cRevGloEvo"></canvas></div>
+      <div class="chart-box"><div class="chart-head"><div class="chart-title">Répartition annuelle par source</div></div><canvas id="cRevGloPie" height="140"></canvas></div>
+    </div>
+    <div class="chart-box" style="margin-top:14px;height:280px"><div class="chart-head"><div class="chart-title">Évolution trimestrielle</div></div><canvas id="cRevQuarter"></canvas></div>
   </div>
 </div>
 
@@ -334,6 +396,21 @@ canvas{width:100%!important}
     <div class="f-row">
       <button class="btn btn-p" onclick="addCustomRow()">Ajouter</button>
       <button class="btn btn-g" onclick="closeOv('ovRow')">Annuler</button>
+    </div>
+  </div>
+</div>
+<div class="overlay" id="ovRevenu">
+  <div class="modal" onclick="event.stopPropagation()">
+    <h3>Ajouter un revenu</h3>
+    <div class="fg"><label class="fl">Date</label><input class="fi" type="date" id="rvDate"></div>
+    <div class="fg"><label class="fl">Client</label><input class="fi" id="rvClient" placeholder="Ex: PHILIPPE NGUON"></div>
+    <div class="fg"><label class="fl">Catégorie</label><select class="fi" id="rvCat"></select></div>
+    <div class="fg"><label class="fl">€ Contracté</label><input class="fi" type="number" id="rvContracted" step="0.01" placeholder="0"></div>
+    <div class="fg"><label class="fl">€ Encaissé</label><input class="fi" type="number" id="rvCashed" step="0.01" placeholder="0"></div>
+    <div class="fg"><label class="fl">Commentaire</label><input class="fi" id="rvComment" placeholder="Ex: Paiement en 2x"></div>
+    <div class="f-row">
+      <button class="btn btn-p" onclick="addRevenu()">Ajouter</button>
+      <button class="btn btn-g" onclick="closeOv('ovRevenu')">Annuler</button>
     </div>
   </div>
 </div>
@@ -463,6 +540,7 @@ function loadFromFirebase(){
     if(data&&data.months){
       state=data;
       state.months.forEach(m=>{if(!m.extraBudget)m.extraBudget=[];if(!m.extraActual)m.extraActual=[];});
+      if(!state.revenus) state.revenus={objectif:5000,categories:['ITC VIP','EDUCATEUR','CONCIERGERIE','MOON BUNDLE','AUTRE'],months:{}};
       localStorage.setItem('fdxb_state',JSON.stringify(state));
     }else{
       state=loadStateLocal();
@@ -517,6 +595,7 @@ function loadState(){return loadStateLocal();}
 
 function buildDefault(){
   const s={rate:4.3284,postes:JSON.parse(JSON.stringify(DEFAULT_POSTES)),months:[],
+    revenus:{objectif:5000,categories:['ITC VIP','EDUCATEUR','CONCIERGERIE','MOON BUNDLE','AUTRE'],months:{}},
     emmenagement:[
       {poste:'LICENCE LLC',aed:8485,taux:4.2905,eur:1977.62,cat:'Société'},
       {poste:'IMMIGRATION CARD',aed:2920,taux:4.296,eur:679.70,cat:'Société'},
@@ -578,18 +657,29 @@ function buildDefault(){
 // LIVE RATE
 // ========================================
 async function fetchLiveRate(){
-  try{
-    const r=await fetch('https://api.frankfurter.app/latest?from=EUR&to=AED');
-    const d=await r.json();
-    if(d&&d.rates&&d.rates.AED){
-      state.rate=d.rates.AED;
-      save();
-      document.getElementById('sideRate').textContent=state.rate.toFixed(4);
-      const ri=document.getElementById('rateIn');if(ri)ri.value=state.rate;
-      document.getElementById('rateLive').style.display='flex';
-      return true;
-    }
-  }catch(e){console.log('Rate fetch failed, using saved rate');}
+  // Try multiple APIs for reliability
+  const apis = [
+    {url:'https://open.er-api.com/v6/latest/EUR', parse:d=>d&&d.rates?d.rates.AED:null},
+    {url:'https://api.frankfurter.app/latest?from=EUR&to=AED', parse:d=>d&&d.rates?d.rates.AED:null},
+    {url:'https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/eur.json', parse:d=>d&&d.eur?d.eur.aed:null},
+  ];
+  for(const api of apis){
+    try{
+      const r=await fetch(api.url);
+      if(!r.ok) continue;
+      const d=await r.json();
+      const rate=api.parse(d);
+      if(rate&&rate>3&&rate<6){
+        state.rate=rate;
+        save();
+        document.getElementById('sideRate').textContent=state.rate.toFixed(4);
+        const ri=document.getElementById('rateIn');if(ri)ri.value=state.rate;
+        document.getElementById('rateLive').style.display='flex';
+        return true;
+      }
+    }catch(e){continue;}
+  }
+  console.log('All rate APIs failed, using saved rate');
   return false;
 }
 // Rate is fetched after Firebase auth loads data
@@ -644,6 +734,7 @@ function go(pg){
   document.querySelector(`.nav-btn[data-pg="${pg}"]`).classList.add('on');
   if(pg==='tracker')renderTracker();
   if(pg==='dashboard')renderDashboard();
+  if(pg==='revenus')renderRevenus();
   if(pg==='emmenagement')renderEmmenagement();
   if(pg==='settings')renderSettings();
 }
@@ -793,6 +884,272 @@ function renderMonthCharts(m){
     ]},options:{responsive:true,indexAxis:'y',plugins:{legend:{labels:{usePointStyle:true,pointStyle:'circle',font:{size:10},color:'#b0b0c8'}},
       tooltip:{backgroundColor:'#1e1e28',borderColor:'#26263a',borderWidth:1,padding:10,cornerRadius:8}},
       scales:{x:{grid:{color:'rgba(38,38,58,.4)'}},y:{grid:{display:false}}}}
+  });
+}
+
+// ========================================
+// REVENUS
+// ========================================
+const MOIS_LIST = ['JANVIER','FÉVRIER','MARS','AVRIL','MAI','JUIN','JUILLET','AOÛT','SEPTEMBRE','OCTOBRE','NOVEMBRE','DÉCEMBRE'];
+const REV_BASE_COLORS = ['#60a5fa','#34d399','#fbbf24','#a78bfa','#f472b6','#22d3ee','#fb923c','#f87171','#a3e635','#818cf8'];
+let curRevMonth = null;
+let revPage = 'tracker';
+
+function revCatColor(cat){
+  const cats=state.revenus.categories||[];
+  const idx=cats.indexOf(cat);
+  return REV_BASE_COLORS[idx>=0?idx%REV_BASE_COLORS.length:0];
+}
+function ensureRevState(){if(!state.revenus)state.revenus={objectif:5000,categories:['ITC VIP','EDUCATEUR','CONCIERGERIE','MOON BUNDLE','AUTRE'],months:{}};}
+function getRevMonth(id){ensureRevState();if(!state.revenus.months[id])state.revenus.months[id]=[];return state.revenus.months[id];}
+
+function setRevPage(pg){
+  revPage=pg;
+  document.getElementById('revPgTracker').style.display=pg==='tracker'?'':'none';
+  document.getElementById('revPgGlobal').style.display=pg==='global'?'':'none';
+  document.querySelectorAll('#revPageToggle .cur-btn').forEach(b=>b.classList.remove('on'));
+  document.querySelectorAll('#revPageToggle .cur-btn')[pg==='tracker'?0:1].classList.add('on');
+  if(pg==='tracker')renderRevTracker();
+  else renderRevGlobal();
+}
+
+function openAddRevenu(){
+  ensureRevState();
+  const today=new Date().toISOString().split('T')[0];
+  document.getElementById('rvDate').value=today;
+  document.getElementById('rvClient').value='';
+  document.getElementById('rvContracted').value='';
+  document.getElementById('rvCashed').value='';
+  document.getElementById('rvComment').value='';
+  // Populate category select from state
+  const sel=document.getElementById('rvCat');
+  sel.innerHTML=(state.revenus.categories||[]).map(c=>`<option value="${c}">${c}</option>`).join('');
+  document.getElementById('ovRevenu').classList.add('on');
+}
+
+function addRevenu(){
+  const date=document.getElementById('rvDate').value;
+  const client=document.getElementById('rvClient').value.trim().toUpperCase()||'—';
+  const cat=document.getElementById('rvCat').value;
+  const contracted=parseFloat(document.getElementById('rvContracted').value)||0;
+  const cashed=parseFloat(document.getElementById('rvCashed').value)||0;
+  const comment=document.getElementById('rvComment').value.trim();
+  if(!date)return alert('Date requise');
+  if(contracted===0&&cashed===0)return alert('Montant requis');
+  const d=new Date(date);
+  const mName=MOIS_LIST[d.getMonth()];
+  const entries=getRevMonth(mName);
+  entries.push({date,client,cat,contracted,cashed,comment});
+  entries.sort((a,b)=>a.date.localeCompare(b.date));
+  curRevMonth=mName;
+  save();closeOv('ovRevenu');renderRevTracker();
+}
+
+function deleteRevenu(month,idx){
+  if(!confirm('Supprimer cette entrée ?'))return;
+  state.revenus.months[month].splice(idx,1);
+  save();renderRevTracker();
+}
+
+function saveRevCats(){
+  const raw=document.getElementById('revCatsTA').value.trim();
+  const cats=raw.split('\n').map(s=>s.trim().toUpperCase()).filter(s=>s.length>0);
+  if(cats.length===0)return alert('Au moins une catégorie');
+  state.revenus.categories=cats;
+  save();renderRevGlobal();
+}
+
+function renderRevenus(){
+  ensureRevState();
+  if(revPage==='tracker')renderRevTracker();
+  else renderRevGlobal();
+}
+
+function renderRevTracker(){
+  ensureRevState();
+  const rm=state.revenus.months;
+  const activeMonths=MOIS_LIST.filter(m=>rm[m]&&rm[m].length>0);
+  if(!curRevMonth&&activeMonths.length>0) curRevMonth=activeMonths[activeMonths.length-1];
+  if(!curRevMonth) curRevMonth=MOIS_LIST[new Date().getMonth()];
+
+  document.getElementById('revTabs').innerHTML=MOIS_LIST.map(m=>{
+    const hasData=rm[m]&&rm[m].length>0;
+    return `<button class="tab ${m===curRevMonth?'on':''}" onclick="curRevMonth='${m}';renderRevTracker()" style="${!hasData?'opacity:0.4':''}">${m.slice(0,3)}</button>`;
+  }).join('');
+
+  const entries=rm[curRevMonth]||[];
+  const totalContracted=entries.reduce((s,e)=>s+e.contracted,0);
+  const totalCashed=entries.reduce((s,e)=>s+e.cashed,0);
+  const obj=state.revenus.objectif||5000;
+  const delta=totalCashed-obj;
+  const pct=obj>0?(totalCashed/obj*100):0;
+
+  document.getElementById('revKpis').innerHTML=`
+    <div class="solde-card"><div class="solde-icon">🎯</div><div class="solde-info"><div class="solde-lbl">Objectif</div>
+      <div class="solde-val">${f$(obj)} €</div></div></div>
+    <div class="solde-card"><div class="solde-icon">📝</div><div class="solde-info"><div class="solde-lbl">Contracté</div>
+      <div class="solde-val">${f$(totalContracted)} €</div></div></div>
+    <div class="solde-card"><div class="solde-icon">💰</div><div class="solde-info"><div class="solde-lbl">Encaissé</div>
+      <div class="solde-val" style="color:var(--green)">${f$(totalCashed)} €</div></div></div>
+    <div class="solde-card"><div class="solde-icon">${delta>=0?'✅':'⚠️'}</div><div class="solde-info"><div class="solde-lbl">Delta</div>
+      <div class="solde-val ${delta>=0?'diff-pos':'diff-neg'}">${delta>=0?'+':''}${f$(delta)} €</div></div></div>
+    <div class="solde-card"><div class="solde-icon">📊</div><div class="solde-info"><div class="solde-lbl">Atteinte</div>
+      <div class="solde-val" style="color:${pct>=100?'var(--green)':'var(--amber)'}"><strong>${pct.toFixed(0)}%</strong></div></div></div>
+  `;
+
+  let h='';
+  entries.forEach((e,i)=>{
+    const dateStr=e.date?new Date(e.date).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'}):'—';
+    const catColor=revCatColor(e.cat);
+    h+=`<tr>
+      <td>${dateStr}</td><td><strong>${e.client}</strong></td>
+      <td><span style="background:${catColor}22;color:${catColor};padding:2px 8px;border-radius:10px;font-size:11px;font-weight:500">${e.cat}</span></td>
+      <td class="mono">${e.contracted>0?f$(e.contracted)+' €':'—'}</td>
+      <td class="mono" style="color:var(--green)">${e.cashed>0?f$(e.cashed)+' €':'—'}</td>
+      <td style="font-size:12px;color:var(--t2)">${e.comment||''}</td>
+      <td><button class="btn-red" onclick="deleteRevenu('${curRevMonth}',${i})">✕</button></td></tr>`;
+  });
+  if(entries.length===0) h='<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--t3)">Aucun revenu ce mois</td></tr>';
+  document.getElementById('revBody').innerHTML=h;
+  document.getElementById('revFoot').innerHTML=entries.length>0?`<tr style="background:var(--bg2)"><td colspan="2"><strong>TOTAL ${curRevMonth}</strong></td><td></td><td class="mono"><strong>${f$(totalContracted)} €</strong></td><td class="mono"><strong>${f$(totalCashed)} €</strong></td><td colspan="2"></td></tr>`:'';
+
+  // Pie
+  dc_('cRevPie');
+  const srcTotals={};
+  entries.forEach(e=>{srcTotals[e.cat]=(srcTotals[e.cat]||0)+e.cashed;});
+  const srcLabels=Object.keys(srcTotals).filter(k=>srcTotals[k]>0);
+  if(srcLabels.length>0){
+    charts['cRevPie']=new Chart(document.getElementById('cRevPie'),{
+      type:'doughnut',data:{labels:srcLabels,datasets:[{data:srcLabels.map(k=>srcTotals[k]),backgroundColor:srcLabels.map(k=>revCatColor(k)),borderWidth:0,spacing:2}]},
+      options:{responsive:true,cutout:'60%',plugins:{legend:{position:'right',labels:{padding:8,usePointStyle:true,pointStyle:'circle',font:{size:10},color:'#b0b0c8'}},
+        tooltip:{backgroundColor:'#1e1e28',borderColor:'#26263a',borderWidth:1,padding:10,cornerRadius:8}}}
+    });
+  }
+
+  // Evolution bar
+  dc_('cRevEvo');
+  const evoLabels=MOIS_LIST.map(m=>m.slice(0,3));
+  const evoCashed=MOIS_LIST.map(m=>(rm[m]||[]).reduce((s,e)=>s+e.cashed,0));
+  charts['cRevEvo']=new Chart(document.getElementById('cRevEvo'),{
+    type:'bar',data:{labels:evoLabels,datasets:[
+      {label:'Encaissé',data:evoCashed,backgroundColor:MOIS_LIST.map(m=>m===curRevMonth?'rgba(52,211,153,.7)':'rgba(52,211,153,.3)'),borderRadius:6},
+      {type:'line',label:'Objectif',data:MOIS_LIST.map(()=>obj),borderColor:'#f87171',borderDash:[6,4],borderWidth:2,pointRadius:0,fill:false},
+    ]},options:{responsive:true,scales:{y:{grid:{color:'rgba(38,38,58,.4)'}},x:{grid:{display:false}}},
+      plugins:{legend:{labels:{usePointStyle:true,pointStyle:'circle',font:{size:10},color:'#b0b0c8'}},
+        tooltip:{backgroundColor:'#1e1e28',borderColor:'#26263a',borderWidth:1,padding:10,cornerRadius:8,
+          callbacks:{label:ctx=>`${ctx.dataset.label}: ${f$(ctx.parsed.y)} €`}}}}
+  });
+}
+
+function renderRevGlobal(){
+  ensureRevState();
+  const rm=state.revenus.months;
+  const obj=state.revenus.objectif||5000;
+
+  // Fill settings inputs
+  document.getElementById('revObjMensuel').value=obj;
+  document.getElementById('revObjAnnuel').value=obj*12;
+  document.getElementById('revCatsTA').value=(state.revenus.categories||[]).join('\n');
+
+  // Compute annual data
+  let yearContracted=0,yearCashed=0;
+  const monthData=[];
+  let prevCashed=null;
+  MOIS_LIST.forEach(m=>{
+    const me=rm[m]||[];
+    const mc=me.reduce((s,e)=>s+e.contracted,0);
+    const mk=me.reduce((s,e)=>s+e.cashed,0);
+    yearContracted+=mc;yearCashed+=mk;
+    const md=mk-obj,mp=obj>0?(mk/obj*100):0;
+    const vsM1=prevCashed!==null?(mk-prevCashed):null;
+    const vsM1p=prevCashed!==null&&prevCashed>0?((mk-prevCashed)/prevCashed*100):null;
+    monthData.push({name:m,contracted:mc,cashed:mk,delta:md,pct:mp,vsM1,vsM1p,hasData:me.length>0});
+    if(me.length>0) prevCashed=mk;
+  });
+
+  // Global KPIs
+  const yearObj=obj*12;
+  const yearPct=yearObj>0?(yearCashed/yearObj*100):0;
+  const activeMonths=monthData.filter(m=>m.hasData).length;
+  const avg=activeMonths>0?yearCashed/activeMonths:0;
+  const yearPL=yearCashed-yearObj;
+  const plLabel=yearPL>=0?'Surplus':'Reste à atteindre';
+  document.getElementById('revGlobalKpis').innerHTML=`
+    <div style="flex:1;min-width:120px"><div style="font-size:10px;color:var(--t3);text-transform:uppercase;margin-bottom:4px">Total encaissé</div><div style="font-size:20px;font-weight:600;color:var(--green)">${f$(yearCashed)} €</div></div>
+    <div style="flex:1;min-width:120px"><div style="font-size:10px;color:var(--t3);text-transform:uppercase;margin-bottom:4px">Objectif annuel</div><div style="font-size:20px;font-weight:600">${f$(yearObj)} €</div></div>
+    <div style="flex:1;min-width:120px"><div style="font-size:10px;color:var(--t3);text-transform:uppercase;margin-bottom:4px">${plLabel}</div><div style="font-size:20px;font-weight:600;color:${yearPL>=0?'var(--green)':'var(--red)'}">${yearPL>=0?'+':''}${f$(yearPL)} €</div></div>
+    <div style="flex:1;min-width:120px"><div style="font-size:10px;color:var(--t3);text-transform:uppercase;margin-bottom:4px">Atteinte</div><div style="font-size:20px;font-weight:600;color:${yearPct>=100?'var(--green)':'var(--amber)'}"><strong>${yearPct.toFixed(0)}%</strong></div></div>
+    <div style="flex:1;min-width:120px"><div style="font-size:10px;color:var(--t3);text-transform:uppercase;margin-bottom:4px">Moyenne/mois</div><div style="font-size:20px;font-weight:600">${f$(avg)} €</div></div>
+  `;
+
+  // Source summary
+  const srcTotals={};
+  Object.values(rm).flat().forEach(e=>{srcTotals[e.cat]=(srcTotals[e.cat]||0)+e.cashed;});
+  const srcEntries=Object.entries(srcTotals).sort((a,b)=>b[1]-a[1]);
+  document.getElementById('revSourceSummary').innerHTML=`<div style="font-size:10px;color:var(--t3);text-transform:uppercase;margin-bottom:8px">Par source</div>`+
+    srcEntries.map(([cat,val])=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border)">
+      <span style="display:flex;align-items:center;gap:8px"><span style="width:8px;height:8px;border-radius:50%;background:${revCatColor(cat)}"></span>${cat}</span>
+      <span class="mono" style="font-size:13px">${f$(val)} €</span></div>`).join('');
+
+  // Annual table
+  let ah='';
+  monthData.forEach(m=>{
+    if(!m.hasData) return;
+    const vsStr=m.vsM1!==null?`<span class="mono ${m.vsM1>=0?'diff-pos':'diff-neg'}">${m.vsM1>=0?'+':''}${f$(m.vsM1)} €</span>`:'—';
+    ah+=`<tr><td><strong>${m.name}</strong></td>
+      <td class="mono">${f$(obj)} €</td>
+      <td class="mono">${f$(m.contracted)} €</td>
+      <td class="mono">${f$(m.cashed)} €</td>
+      <td class="mono ${m.delta>=0?'diff-pos':'diff-neg'}">${m.delta>=0?'+':''}${f$(m.delta)} €</td>
+      <td><span class="ratio ${m.pct>=100?'under':'over'}">${m.pct.toFixed(0)}%</span></td>
+      <td>${vsStr}</td></tr>`;
+  });
+  document.getElementById('revAnnualBody').innerHTML=ah||'<tr><td colspan="7" style="text-align:center;padding:16px;color:var(--t3)">Pas encore de données</td></tr>';
+  const yearDelta=yearCashed-yearObj;
+  document.getElementById('revAnnualFoot').innerHTML=yearCashed>0?`<tr style="background:var(--bg2)"><td><strong>TOTAL 2026</strong></td><td class="mono"><strong>${f$(yearObj)} €</strong></td><td class="mono"><strong>${f$(yearContracted)} €</strong></td><td class="mono"><strong>${f$(yearCashed)} €</strong></td><td class="mono ${yearDelta>=0?'diff-pos':'diff-neg'}"><strong>${yearDelta>=0?'+':''}${f$(yearDelta)} €</strong></td><td><span class="ratio ${yearPct>=100?'under':'over'}">${yearPct.toFixed(0)}%</span></td><td></td></tr>`:'';
+
+  // Charts
+  dc_('cRevGloEvo');
+  const evoLabels=MOIS_LIST.map(m=>m.slice(0,3));
+  const evoCashed=MOIS_LIST.map(m=>(rm[m]||[]).reduce((s,e)=>s+e.cashed,0));
+  const evoContracted=MOIS_LIST.map(m=>(rm[m]||[]).reduce((s,e)=>s+e.contracted,0));
+  charts['cRevGloEvo']=new Chart(document.getElementById('cRevGloEvo'),{
+    type:'bar',data:{labels:evoLabels,datasets:[
+      {label:'Encaissé',data:evoCashed,backgroundColor:'rgba(52,211,153,.5)',borderRadius:6},
+      {label:'Contracté',data:evoContracted,backgroundColor:'rgba(96,165,250,.3)',borderRadius:6},
+      {type:'line',label:'Objectif',data:MOIS_LIST.map(()=>obj),borderColor:'#f87171',borderDash:[6,4],borderWidth:2,pointRadius:0,fill:false},
+    ]},options:{responsive:true,maintainAspectRatio:false,scales:{y:{grid:{color:'rgba(38,38,58,.4)'}},x:{grid:{display:false}}},
+      plugins:{legend:{labels:{usePointStyle:true,pointStyle:'circle',font:{size:10},color:'#b0b0c8'}},
+        tooltip:{backgroundColor:'#1e1e28',borderColor:'#26263a',borderWidth:1,padding:10,cornerRadius:8,
+          callbacks:{label:ctx=>`${ctx.dataset.label}: ${f$(ctx.parsed.y)} €`}}}}
+  });
+
+  // Annual pie
+  dc_('cRevGloPie');
+  if(srcEntries.length>0){
+    charts['cRevGloPie']=new Chart(document.getElementById('cRevGloPie'),{
+      type:'doughnut',data:{labels:srcEntries.map(([k])=>k),datasets:[{data:srcEntries.map(([,v])=>v),backgroundColor:srcEntries.map(([k])=>revCatColor(k)),borderWidth:0,spacing:2}]},
+      options:{responsive:true,cutout:'60%',plugins:{legend:{position:'right',labels:{padding:8,usePointStyle:true,pointStyle:'circle',font:{size:10},color:'#b0b0c8'}},
+        tooltip:{backgroundColor:'#1e1e28',borderColor:'#26263a',borderWidth:1,padding:10,cornerRadius:8}}}
+    });
+  }
+
+  // Quarterly bar
+  dc_('cRevQuarter');
+  const quarters=['Q1','Q2','Q3','Q4'];
+  const qData=quarters.map((_,qi)=>{
+    const ms=MOIS_LIST.slice(qi*3,qi*3+3);
+    return ms.reduce((s,m)=>(rm[m]||[]).reduce((s2,e)=>s2+e.cashed,0)+s,0);
+  });
+  const qObj=obj*3;
+  charts['cRevQuarter']=new Chart(document.getElementById('cRevQuarter'),{
+    type:'bar',data:{labels:quarters,datasets:[
+      {label:'Encaissé',data:qData,backgroundColor:'rgba(167,139,250,.5)',borderRadius:8,barThickness:50},
+      {type:'line',label:'Objectif trimestre',data:quarters.map(()=>qObj),borderColor:'#f87171',borderDash:[6,4],borderWidth:2,pointRadius:0,fill:false},
+    ]},options:{responsive:true,maintainAspectRatio:false,scales:{y:{grid:{color:'rgba(38,38,58,.4)'}},x:{grid:{display:false}}},
+      plugins:{legend:{labels:{usePointStyle:true,pointStyle:'circle',font:{size:10},color:'#b0b0c8'}},
+        tooltip:{backgroundColor:'#1e1e28',borderColor:'#26263a',borderWidth:1,padding:10,cornerRadius:8,
+          callbacks:{label:ctx=>`${ctx.dataset.label}: ${f$(ctx.parsed.y)} €`}}}}
   });
 }
 
