@@ -548,6 +548,7 @@ function loadFromFirebase(){
       state=data;
       state.months.forEach(m=>{if(!m.extraBudget)m.extraBudget=[];if(!m.extraActual)m.extraActual=[];});
       if(!state.revenus) state.revenus={objectif:5000,categories:['ITC VIP','EDUCATEUR','CONCIERGERIE','MOON BUNDLE','AUTRE'],months:{}};
+      if(!state.revenus.months) state.revenus.months={};
       localStorage.setItem('fdxb_state',JSON.stringify(state));
     }else{
       state=loadStateLocal();
@@ -914,7 +915,7 @@ function revCatColor(cat){
   const idx=cats.indexOf(cat);
   return REV_BASE_COLORS[idx>=0?idx%REV_BASE_COLORS.length:0];
 }
-function ensureRevState(){if(!state.revenus)state.revenus={objectif:5000,categories:['ITC VIP','EDUCATEUR','CONCIERGERIE','MOON BUNDLE','AUTRE'],months:{}};}
+function ensureRevState(){if(!state.revenus)state.revenus={objectif:5000,categories:['ITC VIP','EDUCATEUR','CONCIERGERIE','MOON BUNDLE','AUTRE'],months:{}};if(!state.revenus.months)state.revenus.months={};if(!state.revenus.categories)state.revenus.categories=['ITC VIP','EDUCATEUR','CONCIERGERIE','MOON BUNDLE','AUTRE'];}
 function getRevMonth(id){ensureRevState();if(!state.revenus.months[id])state.revenus.months[id]=[];return state.revenus.months[id];}
 
 function setRevPage(pg){
