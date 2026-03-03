@@ -408,20 +408,42 @@ canvas{width:100%!important}
 </div>
 <div class="overlay" id="ovRevenu">
   <div class="modal" onclick="event.stopPropagation()">
-    <h3>Ajouter un revenu</h3>
-    <div class="fg"><label class="fl">Date</label><input class="fi" type="date" id="rvDate"></div>
+    <h3 id="rvTitle">Ajouter un revenu</h3>
+    <div class="fg"><label class="fl">Date</label><input class="fi" type="date" id="rvDate" style="color-scheme:dark"></div>
     <div class="fg"><label class="fl">Client</label><input class="fi" id="rvClient" placeholder="Ex: PHILIPPE NGUON"></div>
     <div class="fg"><label class="fl">Catégorie</label><select class="fi" id="rvCat"></select></div>
     <div class="fg"><label class="fl">€ Contracté</label><input class="fi" type="number" id="rvContracted" step="0.01" placeholder="0"></div>
     <div class="fg"><label class="fl">€ Encaissé</label><input class="fi" type="number" id="rvCashed" step="0.01" placeholder="0"></div>
     <div class="fg"><label class="fl">Commentaire</label><input class="fi" id="rvComment" placeholder="Ex: Paiement en 2x"></div>
     <div class="f-row">
-      <button class="btn btn-p" onclick="addRevenu()">Ajouter</button>
+      <button class="btn btn-p" id="rvSubmitBtn" onclick="submitRevenu()">Ajouter</button>
       <button class="btn btn-g" onclick="closeOv('ovRevenu')">Annuler</button>
     </div>
   </div>
 </div>
 
+<div class="overlay" id="ovTxn">
+  <div class="modal" onclick="event.stopPropagation()" style="max-width:440px">
+    <h3 id="txnTitle">Ajouter une transaction</h3>
+    <div class="fg"><label class="fl">Libellé</label><input class="fi" id="txnLabel" placeholder="Ex: Carrefour, Uber..."></div>
+    <div class="fg"><label class="fl">Montant (AED)</label><input class="fi" type="number" id="txnAmount" step="0.01" placeholder="0"></div>
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rs);padding:10px 12px;margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--t2)"><span>Taux live</span><span class="mono" id="txnRate">—</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-top:4px"><span>Équivalent EUR</span><strong class="mono" id="txnEur" style="color:var(--green)">—</strong></div>
+    </div>
+    <div class="f-row">
+      <button class="btn btn-p" onclick="confirmTxn()">Ajouter</button>
+      <button class="btn btn-g" onclick="closeOv('ovTxn')">Annuler</button>
+    </div>
+  </div>
+</div>
+<div class="overlay" id="ovTxnView">
+  <div class="modal" onclick="event.stopPropagation()" style="max-width:500px">
+    <h3 id="txnViewTitle">Transactions</h3>
+    <div id="txnViewBody" style="max-height:400px;overflow-y:auto"></div>
+    <div class="f-row" style="margin-top:14px"><button class="btn btn-g" style="width:100%" onclick="closeOv('ovTxnView')">Fermer</button></div>
+  </div>
+</div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 // ========================================
@@ -690,6 +712,7 @@ async function fetchLiveRate(){
         document.getElementById('sideRate').textContent=state.rate.toFixed(4);
         const ri=document.getElementById('rateIn');if(ri)ri.value=state.rate;
         document.getElementById('rateLive').style.display='flex';
+        renderTracker();
         return true;
       }
     }catch(e){continue;}
@@ -698,6 +721,8 @@ async function fetchLiveRate(){
   return false;
 }
 // Rate is fetched after Firebase auth loads data
+// Auto-refresh rate every 15 minutes
+setInterval(()=>{if(userId)fetchLiveRate();},15*60*1000);
 
 // ========================================
 // HELPERS
@@ -781,8 +806,8 @@ function renderTracker(){
   ).join('')+`<button class="btn btn-red" style="margin-left:8px;padding:6px 12px;font-size:12px" onclick="deleteMonth()">🗑 Supprimer ${curMonth}</button>`;
 
   const m=gm(curMonth);if(!m)return;
-  const bE=sumEur(m,m.budget,m.extraBudget), aE=sumEur(m,m.actual,m.extraActual);
-  const bA=sumAed(m,m.budget,m.extraBudget), aA=sumAed(m,m.actual,m.extraActual);
+  const bA=sumAedBudget(m), bE=sumEurBudget(m);
+  const aA=sumAed(m,m.actual,m.extraActual), aE=sumEur(m,m.actual,m.extraActual);
   const diff=(m.earn||0)-aE;
 
   const earnAed = toAed(m.earn||0, m.rate);
@@ -814,16 +839,16 @@ function renderTracker(){
 }
 
 function renderBudgetTable(m){
-  let h='';const tE=sumEur(m,m.budget,m.extraBudget);
+  let h='';const liveRate=state.rate;const tE=sumEurBudget(m);
   state.postes.forEach((p,i)=>{
-    const row=m.budget[i],eur=rowEur(row,m.rate),pct=tE>0?((eur/tE)*100).toFixed(1):'0.0';
+    const row=m.budget[i],eur=p.isAed?toEur(row.aed,liveRate):(row.eur||0),pct=tE>0?((eur/tE)*100).toFixed(1):'0.0';
     h+=`<tr><td><strong>${p.name}</strong></td>
       <td>${p.isAed?`<input class="cell-input" type="number" value="${row.aed||''}" step="0.01" placeholder="0" onchange="gm('${m.id}').budget[${i}].aed=parseFloat(this.value)||0;save();renderTracker()">`:'<span class="mono" style="color:var(--t3)">—</span>'}</td>
       <td>${!p.isAed?`<input class="cell-input" type="number" value="${row.eur||''}" step="0.01" placeholder="0" onchange="gm('${m.id}').budget[${i}].eur=parseFloat(this.value)||0;save();renderTracker()">`:`<span class="mono cell-input eur">${f$(eur)}</span>`}</td>
       <td><div class="mono" style="font-size:11px">${pct}%</div><div class="pbar"><div class="pfill" style="width:${Math.min(pct,100)}%;background:var(--blue)"></div></div></td></tr>`;
   });
   (m.extraBudget||[]).forEach((r,i)=>{
-    const eur=r.eur>0?r.eur:toEur(r.aed,m.rate);
+    const eur=r.eur>0?r.eur:toEur(r.aed,liveRate);
     h+=`<tr><td><strong>${r.name}</strong></td>
       <td><input class="cell-input" type="number" value="${r.aed||''}" step="0.01" onchange="gm('${m.id}').extraBudget[${i}].aed=parseFloat(this.value)||0;save();renderTracker()"></td>
       <td><span class="mono cell-input eur">${f$(eur)}</span></td>
@@ -831,19 +856,35 @@ function renderBudgetTable(m){
   });
   h+=`<tr><td colspan="4" style="text-align:center;padding:8px"><button class="btn btn-g btn-sm" onclick="openAddRow('budget')">+ Ajouter un poste</button></td></tr>`;
   document.getElementById('budgetBody').innerHTML=h;
-  document.getElementById('budgetFoot').innerHTML=`<tr style="background:var(--bg2)"><td><strong>TOTAL</strong></td><td class="mono"><strong>${f0(sumAed(m,m.budget,m.extraBudget))} AED</strong></td><td class="mono"><strong>${f$(tE)} €</strong></td><td></td></tr>`;
+  const tA=sumAedBudget(m);
+  document.getElementById('budgetFoot').innerHTML=`<tr style="background:var(--bg2)"><td><strong>TOTAL</strong></td><td class="mono"><strong>${f0(tA)} AED</strong></td><td class="mono"><strong>${f$(tE)} €</strong></td><td></td></tr>`;
+}
+// Budget sums use LIVE rate for EUR preview
+function sumEurBudget(m){
+  let t=0;const lr=state.rate;
+  state.postes.forEach((p,i)=>{t+=p.isAed?toEur(m.budget[i].aed||0,lr):(m.budget[i].eur||0);});
+  (m.extraBudget||[]).forEach(r=>{t+=r.eur>0?r.eur:toEur(r.aed||0,lr);});return t;
+}
+function sumAedBudget(m){
+  let t=0;const lr=state.rate;
+  state.postes.forEach((p,i)=>{t+=p.isAed?(m.budget[i].aed||0):toAed(m.budget[i].eur||0,lr);});
+  (m.extraBudget||[]).forEach(r=>{t+=r.aed>0?r.aed:toAed(r.eur||0,lr);});return t;
 }
 
 function renderActualTable(m){
   let h='';const tE=sumEur(m,m.actual,m.extraActual);
   state.postes.forEach((p,i)=>{
     const row=m.actual[i],brow=m.budget[i],eur=rowEur(row,m.rate),beur=rowEur(brow,m.rate);
-    const ratio=beur>0?(eur/beur):0,ecart=beur-eur;
+    const txns=row.txns||[];
+    const hasTxns=txns.length>0;
+    const eurDisplay=hasTxns?txns.reduce((s,t)=>s+(t.eur||t.amount/(t.rate||m.rate)),0):eur;
+    const ratio=beur>0?(eurDisplay/beur):0,ecart=beur-eurDisplay;
     const rc=ratio>1.05?'over':ratio<0.95&&ratio>0?'under':'neutral';
     const ec=ecart>=0?'diff-pos':'diff-neg';
-    h+=`<tr><td><strong>${p.name}</strong></td>
+    h+=`<tr><td><strong>${p.name}</strong>
+        <button style="background:var(--green-bg);color:var(--green);border:1px solid var(--green-b);padding:1px 6px;font-size:11px;cursor:pointer;border-radius:4px;margin-left:4px;font-weight:700" onclick="openTxnModal('${m.id}',${i})">+</button>${hasTxns?`<button style="background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-b);padding:1px 6px;font-size:10px;cursor:pointer;border-radius:4px;margin-left:2px" onclick="openTxnView('${m.id}',${i})">👁 ${txns.length}</button>`:''}</td>
       <td>${p.isAed?`<input class="cell-input" type="number" value="${row.aed||''}" step="0.01" placeholder="0" onchange="gm('${m.id}').actual[${i}].aed=parseFloat(this.value)||0;save();renderTracker()">`:'<span class="mono" style="color:var(--t3)">—</span>'}</td>
-      <td>${!p.isAed?`<input class="cell-input" type="number" value="${row.eur||''}" step="0.01" placeholder="0" onchange="gm('${m.id}').actual[${i}].eur=parseFloat(this.value)||0;save();renderTracker()">`:`<span class="mono cell-input eur">${f$(eur)}</span>`}</td>
+      <td>${!p.isAed?`<input class="cell-input" type="number" value="${row.eur||''}" step="0.01" placeholder="0" onchange="gm('${m.id}').actual[${i}].eur=parseFloat(this.value)||0;save();renderTracker()">`:`<span class="mono cell-input eur">${f$(eurDisplay)}</span>`}</td>
       <td><span class="ratio ${rc}">${beur>0?(ratio*100).toFixed(0)+'%':'—'}</span></td>
       <td><span class="mono ${ec}">${beur>0?(ecart>=0?'+':'')+f$(ecart)+' €':'—'}</span></td></tr>`;
   });
@@ -858,6 +899,93 @@ function renderActualTable(m){
   h+=`<tr><td colspan="5" style="text-align:center;padding:8px"><button class="btn btn-g btn-sm" onclick="openAddRow('actual')">+ Ajouter un poste</button></td></tr>`;
   document.getElementById('actualBody').innerHTML=h;
   document.getElementById('actualFoot').innerHTML=`<tr style="background:var(--bg2)"><td><strong>TOTAL</strong></td><td class="mono"><strong>${f0(sumAed(m,m.actual,m.extraActual))} AED</strong></td><td class="mono"><strong>${f$(tE)} €</strong></td><td></td><td></td></tr>`;
+}
+
+let txnTarget=null; // {monthId, posteIdx}
+
+function openTxnModal(monthId,posteIdx){
+  txnTarget={monthId,posteIdx};
+  const p=state.postes[posteIdx];
+  document.getElementById('txnTitle').textContent='Transaction — '+p.name;
+  document.getElementById('txnLabel').value='';
+  document.getElementById('txnAmount').value='';
+  document.getElementById('txnRate').textContent=state.rate.toFixed(4);
+  document.getElementById('txnEur').textContent='—';
+  document.getElementById('txnAmount').oninput=function(){
+    const v=parseFloat(this.value)||0;
+    document.getElementById('txnEur').textContent=v>0?f$(v/state.rate)+' €':'—';
+  };
+  document.getElementById('ovTxn').classList.add('on');
+  document.getElementById('txnLabel').focus();
+}
+
+function confirmTxn(){
+  if(!txnTarget)return;
+  const label=document.getElementById('txnLabel').value.trim()||'—';
+  const amount=parseFloat(document.getElementById('txnAmount').value)||0;
+  if(amount<=0)return alert('Montant requis');
+  const rate=state.rate;
+  const eurVal=amount/rate;
+  const m=gm(txnTarget.monthId);
+  const idx=txnTarget.posteIdx;
+  if(!m.actual[idx].txns) m.actual[idx].txns=[];
+  m.actual[idx].txns.push({label,amount,rate,eur:Math.round(eurVal*100)/100,date:new Date().toISOString().split('T')[0]});
+  recalcActualFromTxns(txnTarget.monthId,idx);
+  txnTarget=null;
+  save();closeOv('ovTxn');renderTracker();
+}
+
+function recalcActualFromTxns(monthId,posteIdx){
+  const m=gm(monthId);
+  const txns=m.actual[posteIdx].txns||[];
+  const p=state.postes[posteIdx];
+  if(txns.length===0){
+    if(p.isAed){m.actual[posteIdx].aed=0;m.actual[posteIdx].eur=null;}
+    else{m.actual[posteIdx].eur=0;}
+    return;
+  }
+  if(p.isAed){
+    m.actual[posteIdx].aed=Math.round(txns.reduce((s,t)=>s+t.amount,0)*100)/100;
+    m.actual[posteIdx].eur=Math.round(txns.reduce((s,t)=>s+(t.eur||t.amount/(t.rate||state.rate)),0)*100)/100;
+  } else {
+    m.actual[posteIdx].eur=Math.round(txns.reduce((s,t)=>s+t.amount,0)*100)/100;
+  }
+}
+
+function openTxnView(monthId,posteIdx){
+  const m=gm(monthId);
+  const p=state.postes[posteIdx];
+  const txns=m.actual[posteIdx].txns||[];
+  document.getElementById('txnViewTitle').textContent='Transactions — '+p.name+' ('+m.id+')';
+  if(txns.length===0){
+    document.getElementById('txnViewBody').innerHTML='<p style="color:var(--t3);text-align:center;padding:20px">Aucune transaction enregistrée</p>';
+  } else {
+    let total=0,totalEur=0;
+    let h='<table style="width:100%"><thead><tr><th>Date</th><th>Libellé</th><th style="text-align:right">AED</th><th style="text-align:right">Taux</th><th style="text-align:right">EUR</th><th></th></tr></thead><tbody>';
+    txns.forEach((t,ti)=>{
+      const eur=t.eur||t.amount/(t.rate||state.rate);
+      total+=t.amount;totalEur+=eur;
+      h+=`<tr>
+        <td style="font-size:11px;color:var(--t2)">${t.date||'—'}</td>
+        <td style="font-size:12px">${t.label}</td>
+        <td class="mono" style="font-size:12px">${f$(t.amount)}</td>
+        <td class="mono" style="font-size:11px;color:var(--t3)">${(t.rate||0).toFixed(4)}</td>
+        <td class="mono" style="font-size:12px;color:var(--green)">${f$(eur)}</td>
+        <td style="text-align:center;position:relative;z-index:5"><button class="btn-red" style="padding:4px 10px;font-size:12px;cursor:pointer;position:relative;z-index:10" onclick="event.stopPropagation();deleteTxn('${monthId}',${posteIdx},${ti})">✕</button></td></tr>`;
+    });
+    h+=`</tbody><tfoot><tr style="background:var(--bg2)"><td colspan="2"><strong>TOTAL (${txns.length})</strong></td><td class="mono"><strong>${f$(total)}</strong></td><td></td><td class="mono"><strong>${f$(totalEur)}</strong></td><td></td></tr></tfoot></table>`;
+    document.getElementById('txnViewBody').innerHTML=h;
+  }
+  document.getElementById('ovTxnView').classList.add('on');
+}
+
+function deleteTxn(monthId,posteIdx,txnIdx){
+  const m=gm(monthId);
+  m.actual[posteIdx].txns.splice(txnIdx,1);
+  recalcActualFromTxns(monthId,posteIdx);
+  save();
+  openTxnView(monthId,posteIdx);
+  renderTracker();
 }
 
 // ========================================
@@ -928,7 +1056,10 @@ function setRevPage(pg){
   else renderRevGlobal();
 }
 
+let rvEditMode=null; // null=add, {month,idx}=edit
+
 function openAddRevenu(){
+  rvEditMode=null;
   ensureRevState();
   const today=new Date().toISOString().split('T')[0];
   document.getElementById('rvDate').value=today;
@@ -936,13 +1067,31 @@ function openAddRevenu(){
   document.getElementById('rvContracted').value='';
   document.getElementById('rvCashed').value='';
   document.getElementById('rvComment').value='';
-  // Populate category select from state
+  document.getElementById('rvTitle').textContent='Ajouter un revenu';
+  document.getElementById('rvSubmitBtn').textContent='Ajouter';
   const sel=document.getElementById('rvCat');
   sel.innerHTML=(state.revenus.categories||[]).map(c=>`<option value="${c}">${c}</option>`).join('');
   document.getElementById('ovRevenu').classList.add('on');
 }
 
-function addRevenu(){
+function openEditRevenu(month,idx){
+  rvEditMode={month,idx};
+  ensureRevState();
+  const e=state.revenus.months[month][idx];
+  document.getElementById('rvDate').value=e.date||'';
+  document.getElementById('rvClient').value=e.client||'';
+  document.getElementById('rvContracted').value=e.contracted||'';
+  document.getElementById('rvCashed').value=e.cashed||'';
+  document.getElementById('rvComment').value=e.comment||'';
+  document.getElementById('rvTitle').textContent='Modifier le revenu';
+  document.getElementById('rvSubmitBtn').textContent='Enregistrer';
+  const sel=document.getElementById('rvCat');
+  sel.innerHTML=(state.revenus.categories||[]).map(c=>`<option value="${c}">${c}</option>`).join('');
+  sel.value=e.cat||'';
+  document.getElementById('ovRevenu').classList.add('on');
+}
+
+function submitRevenu(){
   const date=document.getElementById('rvDate').value;
   const client=document.getElementById('rvClient').value.trim().toUpperCase()||'—';
   const cat=document.getElementById('rvCat').value;
@@ -953,10 +1102,19 @@ function addRevenu(){
   if(contracted===0&&cashed===0)return alert('Montant requis');
   const d=new Date(date);
   const mName=MOIS_LIST[d.getMonth()];
+  const entry={date,client,cat,contracted,cashed,comment};
+
+  if(rvEditMode){
+    // Edit: remove old entry, add updated one (may change month if date changed)
+    state.revenus.months[rvEditMode.month].splice(rvEditMode.idx,1);
+    if(state.revenus.months[rvEditMode.month].length===0) delete state.revenus.months[rvEditMode.month];
+  }
+
   const entries=getRevMonth(mName);
-  entries.push({date,client,cat,contracted,cashed,comment});
+  entries.push(entry);
   entries.sort((a,b)=>a.date.localeCompare(b.date));
   curRevMonth=mName;
+  rvEditMode=null;
   save();closeOv('ovRevenu');renderRevTracker();
 }
 
@@ -1002,10 +1160,10 @@ function renderRevTracker(){
   document.getElementById('revKpis').innerHTML=`
     <div class="solde-card"><div class="solde-icon">🎯</div><div class="solde-info"><div class="solde-lbl">Objectif</div>
       <div class="solde-val">${f$(obj)} €</div></div></div>
-    <div class="solde-card"><div class="solde-icon">📝</div><div class="solde-info"><div class="solde-lbl">Contracté</div>
-      <div class="solde-val">${f$(totalContracted)} €</div></div></div>
     <div class="solde-card"><div class="solde-icon">💰</div><div class="solde-info"><div class="solde-lbl">Encaissé</div>
       <div class="solde-val" style="color:var(--green)">${f$(totalCashed)} €</div></div></div>
+    <div class="solde-card"><div class="solde-icon">📝</div><div class="solde-info"><div class="solde-lbl">Contracté</div>
+      <div class="solde-val">${f$(totalContracted)} €</div></div></div>
     <div class="solde-card"><div class="solde-icon">${delta>=0?'✅':'⚠️'}</div><div class="solde-info"><div class="solde-lbl">Delta</div>
       <div class="solde-val ${delta>=0?'diff-pos':'diff-neg'}">${delta>=0?'+':''}${f$(delta)} €</div></div></div>
     <div class="solde-card"><div class="solde-icon">📊</div><div class="solde-info"><div class="solde-lbl">Atteinte</div>
@@ -1022,7 +1180,7 @@ function renderRevTracker(){
       <td class="mono">${e.contracted>0?f$(e.contracted)+' €':'—'}</td>
       <td class="mono" style="color:var(--green)">${e.cashed>0?f$(e.cashed)+' €':'—'}</td>
       <td style="font-size:12px;color:var(--t2)">${e.comment||''}</td>
-      <td><button class="btn-red" onclick="deleteRevenu('${curRevMonth}',${i})">✕</button></td></tr>`;
+      <td style="white-space:nowrap"><button class="btn-green" style="padding:3px 7px;font-size:10px;margin-right:4px" onclick="openEditRevenu('${curRevMonth}',${i})">✎</button><button class="btn-red" onclick="deleteRevenu('${curRevMonth}',${i})">✕</button></td></tr>`;
   });
   if(entries.length===0) h='<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--t3)">Aucun revenu ce mois</td></tr>';
   document.getElementById('revBody').innerHTML=h;
@@ -1321,7 +1479,7 @@ function renderSettings(){
 function saveRate(){
   state.rate=parseFloat(document.getElementById('rateIn').value)||4.3284;
   document.getElementById('sideRate').textContent=state.rate.toFixed(4);
-  save();alert('Taux sauvegardé !');
+  save();renderTracker();alert('Taux sauvegardé !');
 }
 
 function savePostes(){
