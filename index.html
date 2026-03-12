@@ -251,9 +251,9 @@ canvas{width:100%!important}
   <!-- Monthly Charts - below tables, compact -->
   <div class="month-charts" id="monthChartsArea">
     <div class="chart-box"><div class="chart-head"><div class="chart-title">Répartition Budget</div></div><canvas id="cMBudgetPie" height="140"></canvas></div>
-    <div class="chart-box"><div class="chart-head"><div class="chart-title">Budget vs Réel</div></div><canvas id="cMCompare" height="140"></canvas></div>
     <div class="chart-box"><div class="chart-head"><div class="chart-title">Répartition Réelle</div></div><canvas id="cMActualPie" height="140"></canvas></div>
   </div>
+  <div class="chart-box" style="margin-bottom:20px"><div class="chart-head"><div class="chart-title">Budget vs Réel</div></div><canvas id="cMCompare" height="200"></canvas></div>
 </div>
 
 <!-- =========== DASHBOARD =========== -->
@@ -890,7 +890,10 @@ function renderActualTable(m){
   });
   (m.extraActual||[]).forEach((r,i)=>{
     const eur=r.eur>0?r.eur:toEur(r.aed,m.rate);
-    h+=`<tr><td><strong>${r.name}</strong></td>
+    const txns=r.txns||[];
+    const hasTxns=txns.length>0;
+    h+=`<tr><td><strong>${r.name}</strong>
+        <button style="background:var(--green-bg);color:var(--green);border:1px solid var(--green-b);padding:1px 6px;font-size:11px;cursor:pointer;border-radius:4px;margin-left:4px;font-weight:700" onclick="openTxnModalExtra('${m.id}',${i})">+</button>${hasTxns?`<button style="background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-b);padding:1px 6px;font-size:10px;cursor:pointer;border-radius:4px;margin-left:2px" onclick="openTxnViewExtra('${m.id}',${i})">👁 ${txns.length}</button>`:''}</td>
       <td><input class="cell-input" type="number" value="${r.aed||''}" step="0.01" onchange="gm('${m.id}').extraActual[${i}].aed=parseFloat(this.value)||0;save();renderTracker()"></td>
       <td><span class="mono cell-input eur">${f$(eur)}</span></td>
       <td><span class="ratio neutral">—</span></td>
@@ -898,7 +901,12 @@ function renderActualTable(m){
   });
   h+=`<tr><td colspan="5" style="text-align:center;padding:8px"><button class="btn btn-g btn-sm" onclick="openAddRow('actual')">+ Ajouter un poste</button></td></tr>`;
   document.getElementById('actualBody').innerHTML=h;
-  document.getElementById('actualFoot').innerHTML=`<tr style="background:var(--bg2)"><td><strong>TOTAL</strong></td><td class="mono"><strong>${f0(sumAed(m,m.actual,m.extraActual))} AED</strong></td><td class="mono"><strong>${f$(tE)} €</strong></td><td></td><td></td></tr>`;
+  // Footer with total + ratio vs budget + %
+  const tBE=sumEurBudget(m);
+  const globalRatio=tBE>0?(tE/tBE):0;
+  const globalPct=tBE>0?(tE/tBE*100).toFixed(0)+'%':'—';
+  const globalRc=globalRatio>1.05?'over':globalRatio<0.95&&globalRatio>0?'under':'neutral';
+  document.getElementById('actualFoot').innerHTML=`<tr style="background:var(--bg2)"><td><strong>TOTAL</strong></td><td class="mono"><strong>${f0(sumAed(m,m.actual,m.extraActual))} AED</strong></td><td class="mono"><strong>${f$(tE)} €</strong></td><td><span class="ratio ${globalRc}">${globalPct}</span></td><td></td></tr>`;
 }
 
 let txnTarget=null; // {monthId, posteIdx}
@@ -927,10 +935,19 @@ function confirmTxn(){
   const rate=state.rate;
   const eurVal=amount/rate;
   const m=gm(txnTarget.monthId);
-  const idx=txnTarget.posteIdx;
-  if(!m.actual[idx].txns) m.actual[idx].txns=[];
-  m.actual[idx].txns.push({label,amount,rate,eur:Math.round(eurVal*100)/100,date:new Date().toISOString().split('T')[0]});
-  recalcActualFromTxns(txnTarget.monthId,idx);
+
+  if(txnTarget.isExtra){
+    const r=m.extraActual[txnTarget.extraIdx];
+    if(!r.txns) r.txns=[];
+    r.txns.push({label,amount,rate,eur:Math.round(eurVal*100)/100,date:new Date().toISOString().split('T')[0]});
+    r.aed=Math.round(r.txns.reduce((s,t)=>s+t.amount,0)*100)/100;
+  } else {
+    const idx=txnTarget.posteIdx;
+    if(!m.actual[idx].txns) m.actual[idx].txns=[];
+    m.actual[idx].txns.push({label,amount,rate,eur:Math.round(eurVal*100)/100,date:new Date().toISOString().split('T')[0]});
+    recalcActualFromTxns(txnTarget.monthId,idx);
+  }
+
   txnTarget=null;
   save();closeOv('ovTxn');renderTracker();
 }
@@ -985,6 +1002,58 @@ function deleteTxn(monthId,posteIdx,txnIdx){
   recalcActualFromTxns(monthId,posteIdx);
   save();
   openTxnView(monthId,posteIdx);
+  renderTracker();
+}
+
+// Extra row transaction support
+function openTxnModalExtra(monthId,extraIdx){
+  txnTarget={monthId,extraIdx,isExtra:true};
+  const r=gm(monthId).extraActual[extraIdx];
+  document.getElementById('txnTitle').textContent='Transaction — '+r.name;
+  document.getElementById('txnLabel').value='';
+  document.getElementById('txnAmount').value='';
+  document.getElementById('txnRate').textContent=state.rate.toFixed(4);
+  document.getElementById('txnEur').textContent='—';
+  document.getElementById('txnAmount').oninput=function(){
+    const v=parseFloat(this.value)||0;
+    document.getElementById('txnEur').textContent=v>0?f$(v/state.rate)+' €':'—';
+  };
+  document.getElementById('ovTxn').classList.add('on');
+  document.getElementById('txnLabel').focus();
+}
+
+function openTxnViewExtra(monthId,extraIdx){
+  const m=gm(monthId);
+  const r=m.extraActual[extraIdx];
+  const txns=r.txns||[];
+  document.getElementById('txnViewTitle').textContent='Transactions — '+r.name+' ('+m.id+')';
+  if(txns.length===0){
+    document.getElementById('txnViewBody').innerHTML='<p style="color:var(--t3);text-align:center;padding:20px">Aucune transaction</p>';
+  } else {
+    let total=0,totalEur=0;
+    let h='<table style="width:100%"><thead><tr><th>Date</th><th>Libellé</th><th style="text-align:right">AED</th><th style="text-align:right">Taux</th><th style="text-align:right">EUR</th><th></th></tr></thead><tbody>';
+    txns.forEach((t,ti)=>{
+      const eur=t.eur||t.amount/(t.rate||state.rate);
+      total+=t.amount;totalEur+=eur;
+      h+=`<tr><td style="font-size:11px;color:var(--t2)">${t.date||'—'}</td><td style="font-size:12px">${t.label}</td>
+        <td class="mono" style="font-size:12px">${f$(t.amount)}</td><td class="mono" style="font-size:11px;color:var(--t3)">${(t.rate||0).toFixed(4)}</td>
+        <td class="mono" style="font-size:12px;color:var(--green)">${f$(eur)}</td>
+        <td style="text-align:center"><button class="btn-red" style="padding:4px 10px;font-size:12px;cursor:pointer" onclick="event.stopPropagation();deleteExtraTxn('${monthId}',${extraIdx},${ti})">✕</button></td></tr>`;
+    });
+    h+=`</tbody><tfoot><tr style="background:var(--bg2)"><td colspan="2"><strong>TOTAL (${txns.length})</strong></td><td class="mono"><strong>${f$(total)}</strong></td><td></td><td class="mono"><strong>${f$(totalEur)}</strong></td><td></td></tr></tfoot></table>`;
+    document.getElementById('txnViewBody').innerHTML=h;
+  }
+  document.getElementById('ovTxnView').classList.add('on');
+}
+
+function deleteExtraTxn(monthId,extraIdx,txnIdx){
+  const m=gm(monthId);
+  const r=m.extraActual[extraIdx];
+  r.txns.splice(txnIdx,1);
+  const txns=r.txns||[];
+  r.aed=txns.length>0?Math.round(txns.reduce((s,t)=>s+t.amount,0)*100)/100:0;
+  save();
+  openTxnViewExtra(monthId,extraIdx);
   renderTracker();
 }
 
@@ -1134,8 +1203,11 @@ function saveRevCats(){
 
 function renderRevenus(){
   ensureRevState();
-  if(revPage==='tracker')renderRevTracker();
-  else renderRevGlobal();
+  // Defer to next frame so canvas is visible before Chart.js measures it
+  setTimeout(()=>{
+    if(revPage==='tracker')renderRevTracker();
+    else renderRevGlobal();
+  },50);
 }
 
 function renderRevTracker(){
@@ -1561,7 +1633,12 @@ function addCustomRow(){
   const aed=parseFloat(document.getElementById('arAed').value)||0;
   const eur=parseFloat(document.getElementById('arEur').value)||0;
   const row={name,cat,aed,eur};
-  if(section==='budget'){if(!m.extraBudget)m.extraBudget=[];m.extraBudget.push(row);}
+  if(section==='budget'){
+    if(!m.extraBudget)m.extraBudget=[];m.extraBudget.push(row);
+    // Also add matching row to actual
+    if(!m.extraActual)m.extraActual=[];
+    if(!m.extraActual.find(r=>r.name===name)){m.extraActual.push({name,cat,aed:0,eur:0});}
+  }
   else{if(!m.extraActual)m.extraActual=[];m.extraActual.push(row);}
   save();closeOv('ovRow');renderTracker();
 }
