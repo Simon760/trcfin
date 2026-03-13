@@ -808,10 +808,19 @@ function renderTracker(){
   const m=gm(curMonth);if(!m)return;
   const bA=sumAedBudget(m), bE=sumEurBudget(m);
   const aA=sumAed(m,m.actual,m.extraActual), aE=sumEur(m,m.actual,m.extraActual);
-  const diff=(m.earn||0)-aE;
 
-  const earnAed = toAed(m.earn||0, m.rate);
+  // Revenue: hybrid — legacy m.earn for old months, synced for MARS+
+  const synced=isRevSynced(m.id);
+  const earnEur=synced?getMonthRevEur(m.id):(m.earn||0);
+  const earnAed=synced?getMonthRevAed(m.id):toAed(m.earn||0,m.rate);
+  const diff=earnEur-aE;
   const prevCompte = (m.soldeStart||0) + earnAed - aA;
+
+  const earnCard=synced?
+    `<div class="solde-card"><div class="solde-icon">💵</div><div class="solde-info"><div class="solde-lbl">Revenus du mois</div>
+      <div class="solde-val">${f$(earnEur)} €</div><div style="font-size:11px;color:var(--t3);margin-top:2px;font-family:'IBM Plex Mono',monospace">${f0(earnAed)} AED</div></div></div>`:
+    `<div class="solde-card"><div class="solde-icon">💵</div><div class="solde-info"><div class="solde-lbl">Revenus (EUR)</div>
+      <input class="solde-input" type="number" value="${m.earn||0}" step="0.01" onchange="gm('${m.id}').earn=parseFloat(this.value)||0;save();renderTracker()"></div></div>`;
 
   document.getElementById('soldeRow').innerHTML=`
     <div class="solde-card"><div class="solde-icon">🏦</div><div class="solde-info"><div class="solde-lbl">Solde début (AED)</div>
@@ -820,8 +829,7 @@ function renderTracker(){
       <input class="solde-input" type="number" value="${m.soldeEnd||0}" step="0.01" onchange="gm('${m.id}').soldeEnd=parseFloat(this.value)||0;save();renderTracker()"></div></div>
     <div class="solde-card"><div class="solde-icon">📊</div><div class="solde-info"><div class="solde-lbl">Prévisionnel compte (AED)</div>
       <div class="solde-val ${prevCompte>=0?'diff-pos':'diff-neg'}">${f0(prevCompte)} AED</div></div></div>
-    <div class="solde-card"><div class="solde-icon">💵</div><div class="solde-info"><div class="solde-lbl">Revenus (EUR)</div>
-      <input class="solde-input" type="number" value="${m.earn||0}" step="0.01" onchange="gm('${m.id}').earn=parseFloat(this.value)||0;save();renderTracker()"></div></div>
+    ${earnCard}
     <div class="solde-card"><div class="solde-icon">💸</div><div class="solde-info"><div class="solde-lbl">Dépenses du mois</div>
       <div class="solde-val">${f$(aE)} €</div></div></div>
     <div class="solde-card"><div class="solde-icon">${diff>=0?'✅':'⚠️'}</div><div class="solde-info"><div class="solde-lbl">Revenus − Dépenses</div>
@@ -1115,6 +1123,36 @@ function revCatColor(cat){
 function ensureRevState(){if(!state.revenus)state.revenus={objectif:5000,categories:['ITC VIP','EDUCATEUR','CONCIERGERIE','MOON BUNDLE','AUTRE'],months:{}};if(!state.revenus.months)state.revenus.months={};if(!state.revenus.categories)state.revenus.categories=['ITC VIP','EDUCATEUR','CONCIERGERIE','MOON BUNDLE','AUTRE'];}
 function getRevMonth(id){ensureRevState();if(!state.revenus.months[id])state.revenus.months[id]=[];return state.revenus.months[id];}
 
+// Sync revenus → tracker: compute EUR and AED from confirmed entries
+// For MARS 2026+ → auto from Revenus tab. Before → use legacy m.earn
+const SYNC_FROM_MONTH = 'MARS'; // Months from here use Revenus tab data
+function isRevSynced(monthId){
+  const idx=MOIS_LIST.indexOf(monthId);
+  const syncIdx=MOIS_LIST.indexOf(SYNC_FROM_MONTH);
+  return idx>=syncIdx;
+}
+function getMonthRevEur(monthId){
+  ensureRevState();
+  const entries=state.revenus.months[monthId]||[];
+  return entries.filter(e=>e.status!=='pending').reduce((s,e)=>s+(e.cashed||0),0);
+}
+function getMonthRevAed(monthId){
+  ensureRevState();
+  const entries=state.revenus.months[monthId]||[];
+  return entries.filter(e=>e.status!=='pending').reduce((s,e)=>{
+    const r=e.rate||state.rate;
+    return s+((e.cashed||0)*r);
+  },0);
+}
+// Get effective earn EUR for a month (legacy or synced)
+function monthEarnEur(m){
+  return isRevSynced(m.id)?getMonthRevEur(m.id):(m.earn||0);
+}
+// Get effective earn AED for a month (legacy or synced)
+function monthEarnAed(m){
+  return isRevSynced(m.id)?getMonthRevAed(m.id):toAed(m.earn||0,m.rate);
+}
+
 function setRevPage(pg){
   revPage=pg;
   document.getElementById('revPgTracker').style.display=pg==='tracker'?'':'none';
@@ -1171,10 +1209,10 @@ function submitRevenu(){
   if(contracted===0&&cashed===0)return alert('Montant requis');
   const d=new Date(date);
   const mName=MOIS_LIST[d.getMonth()];
-  const entry={date,client,cat,contracted,cashed,comment};
+  // Store live rate at moment of entry for accurate AED conversion
+  const entry={date,client,cat,contracted,cashed,comment,rate:state.rate};
 
   if(rvEditMode){
-    // Edit: remove old entry, add updated one (may change month if date changed)
     state.revenus.months[rvEditMode.month].splice(rvEditMode.idx,1);
     if(state.revenus.months[rvEditMode.month].length===0) delete state.revenus.months[rvEditMode.month];
   }
@@ -1406,7 +1444,7 @@ function renderDashboard(){
 
   const ms=state.months;
   const totalSpent=ms.reduce((s,m)=>s+sumEur(m,m.actual,m.extraActual),0);
-  const totalEarn=ms.reduce((s,m)=>s+(m.earn||0),0);
+  const totalEarn=ms.reduce((s,m)=>s+monthEarnEur(m),0);
   const avg=totalSpent/ms.length;
   const balance=totalEarn-totalSpent;
   // Use average rate for aggregate display
@@ -1422,7 +1460,7 @@ function renderDashboard(){
   // Evolution: spend & earn per month - smart Y-axis
   dc_('cEvo');
   const spendD=ms.map(m=>{const e=sumEur(m,m.actual,m.extraActual);return dashCur==='EUR'?e:toAed(e,m.rate);});
-  const earnD=ms.map(m=>{const e=m.earn||0;return dashCur==='EUR'?e:toAed(e,m.rate);});
+  const earnD=ms.map(m=>{const e=monthEarnEur(m);return dashCur==='EUR'?e:monthEarnAed(m);});
   const evoAll=[...spendD,...earnD].filter(v=>v>0);
   const evoMax=evoAll.length>0?Math.max(...evoAll):1000;
   const evoMinVal=evoAll.length>0?Math.min(...evoAll):0;
