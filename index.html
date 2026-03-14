@@ -968,7 +968,6 @@ function confirmTxn(){
   const inputAmount=parseFloat(document.getElementById('txnAmount').value)||0;
   if(inputAmount<=0)return alert('Montant requis');
   const rate=state.rate;
-  // Convert to AED if entered in EUR
   const amountAed=txnCur==='EUR'?inputAmount*rate:inputAmount;
   const eurVal=txnCur==='EUR'?inputAmount:inputAmount/rate;
   const m=gm(txnTarget.monthId);
@@ -976,15 +975,19 @@ function confirmTxn(){
   const txnEntry={label,amount:Math.round(amountAed*100)/100,rate,eur:Math.round(eurVal*100)/100,
     date:new Date().toISOString().split('T')[0],currency:txnCur,originalAmount:Math.round(inputAmount*100)/100};
 
+  const isEdit=txnTarget.editIdx!==undefined;
+
   if(txnTarget.isExtra){
     const r=m.extraActual[txnTarget.extraIdx];
     if(!r.txns) r.txns=[];
-    r.txns.push(txnEntry);
+    if(isEdit){r.txns[txnTarget.editIdx]=txnEntry;}
+    else{r.txns.push(txnEntry);}
     r.aed=Math.round(r.txns.reduce((s,t)=>s+t.amount,0)*100)/100;
   } else {
     const idx=txnTarget.posteIdx;
     if(!m.actual[idx].txns) m.actual[idx].txns=[];
-    m.actual[idx].txns.push(txnEntry);
+    if(isEdit){m.actual[idx].txns[txnTarget.editIdx]=txnEntry;}
+    else{m.actual[idx].txns.push(txnEntry);}
     recalcActualFromTxns(txnTarget.monthId,idx);
   }
 
@@ -1029,7 +1032,7 @@ function openTxnView(monthId,posteIdx){
         <td class="mono" style="font-size:12px">${f$(t.amount)}</td>
         <td class="mono" style="font-size:11px;color:var(--t3)">${(t.rate||0).toFixed(4)}</td>
         <td class="mono" style="font-size:12px;color:var(--green)">${f$(eur)}</td>
-        <td style="text-align:center;position:relative;z-index:5"><button class="btn-red" style="padding:4px 10px;font-size:12px;cursor:pointer;position:relative;z-index:10" onclick="event.stopPropagation();deleteTxn('${monthId}',${posteIdx},${ti})">✕</button></td></tr>`;
+        <td style="text-align:center;white-space:nowrap"><button class="btn-green" style="padding:3px 7px;font-size:10px;margin-right:3px;cursor:pointer" onclick="event.stopPropagation();editTxn('${monthId}',${posteIdx},${ti})">✎</button><button class="btn-red" style="padding:4px 10px;font-size:12px;cursor:pointer;position:relative;z-index:10" onclick="event.stopPropagation();deleteTxn('${monthId}',${posteIdx},${ti})">✕</button></td></tr>`;
     });
     h+=`</tbody><tfoot><tr style="background:var(--bg2)"><td colspan="2"><strong>TOTAL (${txns.length})</strong></td><td class="mono"><strong>${f$(total)}</strong></td><td></td><td class="mono"><strong>${f$(totalEur)}</strong></td><td></td></tr></tfoot></table>`;
     document.getElementById('txnViewBody').innerHTML=h;
@@ -1044,6 +1047,56 @@ function deleteTxn(monthId,posteIdx,txnIdx){
   save();
   openTxnView(monthId,posteIdx);
   renderTracker();
+}
+
+function editTxn(monthId,posteIdx,txnIdx){
+  const m=gm(monthId);
+  const t=m.actual[posteIdx].txns[txnIdx];
+  const p=state.postes[posteIdx];
+  closeOv('ovTxnView');
+  txnTarget={monthId,posteIdx,editIdx:txnIdx};
+  const cur=t.currency||'AED';
+  txnCur=cur;
+  document.getElementById('txnTitle').textContent='Modifier — '+p.name;
+  document.getElementById('txnLabel').value=t.label||'';
+  document.getElementById('txnAmount').value=t.originalAmount||t.amount||'';
+  document.getElementById('txnRate').textContent=state.rate.toFixed(4);
+  document.getElementById('txnAmountLabel').textContent='Montant ('+cur+')';
+  document.getElementById('txnConvLabel').textContent=cur==='AED'?'Équivalent EUR':'Équivalent AED';
+  document.querySelectorAll('#txnCurToggle .cur-btn').forEach((b,i)=>b.classList.toggle('on',i===(cur==='AED'?0:1)));
+  const v=parseFloat(document.getElementById('txnAmount').value)||0;
+  document.getElementById('txnConvVal').textContent=v>0?(cur==='AED'?f$(v/state.rate)+' €':f$(v*state.rate)+' AED'):'—';
+  document.getElementById('txnAmount').oninput=function(){
+    const v2=parseFloat(this.value)||0;
+    document.getElementById('txnConvVal').textContent=v2>0?(txnCur==='AED'?f$(v2/state.rate)+' €':f$(v2*state.rate)+' AED'):'—';
+  };
+  document.getElementById('ovTxn').classList.add('on');
+  document.getElementById('txnLabel').focus();
+}
+
+function editExtraTxn(monthId,extraIdx,txnIdx){
+  const m=gm(monthId);
+  const t=m.extraActual[extraIdx].txns[txnIdx];
+  const r=m.extraActual[extraIdx];
+  closeOv('ovTxnView');
+  txnTarget={monthId,extraIdx,isExtra:true,editIdx:txnIdx};
+  const cur=t.currency||'AED';
+  txnCur=cur;
+  document.getElementById('txnTitle').textContent='Modifier — '+r.name;
+  document.getElementById('txnLabel').value=t.label||'';
+  document.getElementById('txnAmount').value=t.originalAmount||t.amount||'';
+  document.getElementById('txnRate').textContent=state.rate.toFixed(4);
+  document.getElementById('txnAmountLabel').textContent='Montant ('+cur+')';
+  document.getElementById('txnConvLabel').textContent=cur==='AED'?'Équivalent EUR':'Équivalent AED';
+  document.querySelectorAll('#txnCurToggle .cur-btn').forEach((b,i)=>b.classList.toggle('on',i===(cur==='AED'?0:1)));
+  const v=parseFloat(document.getElementById('txnAmount').value)||0;
+  document.getElementById('txnConvVal').textContent=v>0?(cur==='AED'?f$(v/state.rate)+' €':f$(v*state.rate)+' AED'):'—';
+  document.getElementById('txnAmount').oninput=function(){
+    const v2=parseFloat(this.value)||0;
+    document.getElementById('txnConvVal').textContent=v2>0?(txnCur==='AED'?f$(v2/state.rate)+' €':f$(v2*state.rate)+' AED'):'—';
+  };
+  document.getElementById('ovTxn').classList.add('on');
+  document.getElementById('txnLabel').focus();
 }
 
 // Extra row transaction support
@@ -1085,7 +1138,7 @@ function openTxnViewExtra(monthId,extraIdx){
       h+=`<tr><td style="font-size:11px;color:var(--t2)">${t.date||'—'}</td><td style="font-size:12px">${t.label}</td>
         <td class="mono" style="font-size:12px">${f$(t.amount)}</td><td class="mono" style="font-size:11px;color:var(--t3)">${(t.rate||0).toFixed(4)}</td>
         <td class="mono" style="font-size:12px;color:var(--green)">${f$(eur)}</td>
-        <td style="text-align:center"><button class="btn-red" style="padding:4px 10px;font-size:12px;cursor:pointer" onclick="event.stopPropagation();deleteExtraTxn('${monthId}',${extraIdx},${ti})">✕</button></td></tr>`;
+        <td style="text-align:center;white-space:nowrap"><button class="btn-green" style="padding:3px 7px;font-size:10px;margin-right:3px;cursor:pointer" onclick="event.stopPropagation();editExtraTxn('${monthId}',${extraIdx},${ti})">✎</button><button class="btn-red" style="padding:4px 10px;font-size:12px;cursor:pointer" onclick="event.stopPropagation();deleteExtraTxn('${monthId}',${extraIdx},${ti})">✕</button></td></tr>`;
     });
     h+=`</tbody><tfoot><tr style="background:var(--bg2)"><td colspan="2"><strong>TOTAL (${txns.length})</strong></td><td class="mono"><strong>${f$(total)}</strong></td><td></td><td class="mono"><strong>${f$(totalEur)}</strong></td><td></td></tr></tfoot></table>`;
     document.getElementById('txnViewBody').innerHTML=h;
