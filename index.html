@@ -426,10 +426,16 @@ canvas{width:100%!important}
   <div class="modal" onclick="event.stopPropagation()" style="max-width:440px">
     <h3 id="txnTitle">Ajouter une transaction</h3>
     <div class="fg"><label class="fl">Libellé</label><input class="fi" id="txnLabel" placeholder="Ex: Carrefour, Uber..."></div>
-    <div class="fg"><label class="fl">Montant (AED)</label><input class="fi" type="number" id="txnAmount" step="0.01" placeholder="0"></div>
+    <div class="fg"><label class="fl">Devise</label>
+      <div class="cur-toggle" id="txnCurToggle" style="margin-bottom:8px">
+        <button class="cur-btn on" onclick="setTxnCur('AED')">AED</button>
+        <button class="cur-btn" onclick="setTxnCur('EUR')">EUR</button>
+      </div>
+    </div>
+    <div class="fg"><label class="fl" id="txnAmountLabel">Montant (AED)</label><input class="fi" type="number" id="txnAmount" step="0.01" placeholder="0"></div>
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rs);padding:10px 12px;margin-bottom:14px">
       <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--t2)"><span>Taux live</span><span class="mono" id="txnRate">—</span></div>
-      <div style="display:flex;justify-content:space-between;font-size:12px;margin-top:4px"><span>Équivalent EUR</span><strong class="mono" id="txnEur" style="color:var(--green)">—</strong></div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-top:4px"><span id="txnConvLabel">Équivalent EUR</span><strong class="mono" id="txnConvVal" style="color:var(--green)">—</strong></div>
     </div>
     <div class="f-row">
       <button class="btn btn-p" onclick="confirmTxn()">Ajouter</button>
@@ -918,18 +924,39 @@ function renderActualTable(m){
 }
 
 let txnTarget=null; // {monthId, posteIdx}
+let txnCur='AED'; // current txn currency
+
+function setTxnCur(cur){
+  txnCur=cur;
+  document.querySelectorAll('#txnCurToggle .cur-btn').forEach((b,i)=>b.classList.toggle('on',i===(cur==='AED'?0:1)));
+  document.getElementById('txnAmountLabel').textContent='Montant ('+cur+')';
+  document.getElementById('txnConvLabel').textContent=cur==='AED'?'Équivalent EUR':'Équivalent AED';
+  // Recalc conversion display
+  const v=parseFloat(document.getElementById('txnAmount').value)||0;
+  if(v>0){
+    document.getElementById('txnConvVal').textContent=cur==='AED'?f$(v/state.rate)+' €':f$(v*state.rate)+' AED';
+  } else {
+    document.getElementById('txnConvVal').textContent='—';
+  }
+}
 
 function openTxnModal(monthId,posteIdx){
   txnTarget={monthId,posteIdx};
+  txnCur='AED';
   const p=state.postes[posteIdx];
   document.getElementById('txnTitle').textContent='Transaction — '+p.name;
   document.getElementById('txnLabel').value='';
   document.getElementById('txnAmount').value='';
   document.getElementById('txnRate').textContent=state.rate.toFixed(4);
-  document.getElementById('txnEur').textContent='—';
+  document.getElementById('txnConvVal').textContent='—';
+  document.getElementById('txnAmountLabel').textContent='Montant (AED)';
+  document.getElementById('txnConvLabel').textContent='Équivalent EUR';
+  document.querySelectorAll('#txnCurToggle .cur-btn').forEach((b,i)=>b.classList.toggle('on',i===0));
   document.getElementById('txnAmount').oninput=function(){
     const v=parseFloat(this.value)||0;
-    document.getElementById('txnEur').textContent=v>0?f$(v/state.rate)+' €':'—';
+    if(v>0){
+      document.getElementById('txnConvVal').textContent=txnCur==='AED'?f$(v/state.rate)+' €':f$(v*state.rate)+' AED';
+    } else { document.getElementById('txnConvVal').textContent='—'; }
   };
   document.getElementById('ovTxn').classList.add('on');
   document.getElementById('txnLabel').focus();
@@ -938,21 +965,26 @@ function openTxnModal(monthId,posteIdx){
 function confirmTxn(){
   if(!txnTarget)return;
   const label=document.getElementById('txnLabel').value.trim()||'—';
-  const amount=parseFloat(document.getElementById('txnAmount').value)||0;
-  if(amount<=0)return alert('Montant requis');
+  const inputAmount=parseFloat(document.getElementById('txnAmount').value)||0;
+  if(inputAmount<=0)return alert('Montant requis');
   const rate=state.rate;
-  const eurVal=amount/rate;
+  // Convert to AED if entered in EUR
+  const amountAed=txnCur==='EUR'?inputAmount*rate:inputAmount;
+  const eurVal=txnCur==='EUR'?inputAmount:inputAmount/rate;
   const m=gm(txnTarget.monthId);
+
+  const txnEntry={label,amount:Math.round(amountAed*100)/100,rate,eur:Math.round(eurVal*100)/100,
+    date:new Date().toISOString().split('T')[0],currency:txnCur,originalAmount:Math.round(inputAmount*100)/100};
 
   if(txnTarget.isExtra){
     const r=m.extraActual[txnTarget.extraIdx];
     if(!r.txns) r.txns=[];
-    r.txns.push({label,amount,rate,eur:Math.round(eurVal*100)/100,date:new Date().toISOString().split('T')[0]});
+    r.txns.push(txnEntry);
     r.aed=Math.round(r.txns.reduce((s,t)=>s+t.amount,0)*100)/100;
   } else {
     const idx=txnTarget.posteIdx;
     if(!m.actual[idx].txns) m.actual[idx].txns=[];
-    m.actual[idx].txns.push({label,amount,rate,eur:Math.round(eurVal*100)/100,date:new Date().toISOString().split('T')[0]});
+    m.actual[idx].txns.push(txnEntry);
     recalcActualFromTxns(txnTarget.monthId,idx);
   }
 
@@ -990,9 +1022,10 @@ function openTxnView(monthId,posteIdx){
     txns.forEach((t,ti)=>{
       const eur=t.eur||t.amount/(t.rate||state.rate);
       total+=t.amount;totalEur+=eur;
+      const curBadge=t.currency==='EUR'?'<span style="font-size:9px;background:var(--blue-bg);color:var(--blue);padding:1px 4px;border-radius:3px;margin-left:4px">€</span>':'';
       h+=`<tr>
         <td style="font-size:11px;color:var(--t2)">${t.date||'—'}</td>
-        <td style="font-size:12px">${t.label}</td>
+        <td style="font-size:12px">${t.label}${curBadge}</td>
         <td class="mono" style="font-size:12px">${f$(t.amount)}</td>
         <td class="mono" style="font-size:11px;color:var(--t3)">${(t.rate||0).toFixed(4)}</td>
         <td class="mono" style="font-size:12px;color:var(--green)">${f$(eur)}</td>
@@ -1016,15 +1049,21 @@ function deleteTxn(monthId,posteIdx,txnIdx){
 // Extra row transaction support
 function openTxnModalExtra(monthId,extraIdx){
   txnTarget={monthId,extraIdx,isExtra:true};
+  txnCur='AED';
   const r=gm(monthId).extraActual[extraIdx];
   document.getElementById('txnTitle').textContent='Transaction — '+r.name;
   document.getElementById('txnLabel').value='';
   document.getElementById('txnAmount').value='';
   document.getElementById('txnRate').textContent=state.rate.toFixed(4);
-  document.getElementById('txnEur').textContent='—';
+  document.getElementById('txnConvVal').textContent='—';
+  document.getElementById('txnAmountLabel').textContent='Montant (AED)';
+  document.getElementById('txnConvLabel').textContent='Équivalent EUR';
+  document.querySelectorAll('#txnCurToggle .cur-btn').forEach((b,i)=>b.classList.toggle('on',i===0));
   document.getElementById('txnAmount').oninput=function(){
     const v=parseFloat(this.value)||0;
-    document.getElementById('txnEur').textContent=v>0?f$(v/state.rate)+' €':'—';
+    if(v>0){
+      document.getElementById('txnConvVal').textContent=txnCur==='AED'?f$(v/state.rate)+' €':f$(v*state.rate)+' AED';
+    } else { document.getElementById('txnConvVal').textContent='—'; }
   };
   document.getElementById('ovTxn').classList.add('on');
   document.getElementById('txnLabel').focus();
