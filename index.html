@@ -1239,12 +1239,13 @@ function isRevSynced(monthId){
 function getMonthRevEur(monthId){
   ensureRevState();
   const entries=state.revenus.months[monthId]||[];
-  return entries.filter(e=>e.status==='confirmed').reduce((s,e)=>s+(e.cashed||0),0);
+  // Entries without status (legacy) or with status==='confirmed' count as confirmed
+  return entries.filter(e=>!e.status||e.status==='confirmed').reduce((s,e)=>s+(e.cashed||0),0);
 }
 function getMonthRevAed(monthId){
   ensureRevState();
   const entries=state.revenus.months[monthId]||[];
-  return entries.filter(e=>e.status==='confirmed').reduce((s,e)=>{
+  return entries.filter(e=>!e.status||e.status==='confirmed').reduce((s,e)=>{
     const r=e.rate||state.rate;
     return s+((e.cashed||0)*r);
   },0);
@@ -1375,8 +1376,8 @@ function renderRevTracker(){
   const entries=rm[curRevMonth]||[];
   const totalContracted=entries.reduce((s,e)=>s+e.contracted,0);
   const totalCashed=entries.reduce((s,e)=>s+e.cashed,0);
-  const confirmedCashed=entries.filter(e=>e.status==='confirmed').reduce((s,e)=>s+e.cashed,0);
-  const previewCashed=entries.filter(e=>e.status==='preview'||!e.status).reduce((s,e)=>s+e.cashed,0);
+  const confirmedCashed=entries.filter(e=>!e.status||e.status==='confirmed').reduce((s,e)=>s+e.cashed,0);
+  const previewCashed=entries.filter(e=>e.status==='preview').reduce((s,e)=>s+e.cashed,0);
   const obj=state.revenus.objectif||5000;
   const delta=totalCashed-obj;
   const pct=obj>0?(totalCashed/obj*100):0;
@@ -1398,7 +1399,7 @@ function renderRevTracker(){
   entries.forEach((e,i)=>{
     const dateStr=e.date?new Date(e.date).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'}):'—';
     const catColor=revCatColor(e.cat);
-    const st=e.status||'preview';
+    const st=e.status||'confirmed';
     const isPreview=st==='preview';
     const isPending=st==='pending';
     const isConfirmed=st==='confirmed';
