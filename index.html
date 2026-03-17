@@ -214,7 +214,7 @@ canvas{width:100%!important}
     <button class="nav-btn" id="hideToggleBtn" onclick="toggleHideAmounts()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg><span id="hideToggleLabel">Masquer €</span></button>
   </nav>
   <div class="side-footer">
-    <div class="side-footer-label">EUR / AED</div>
+    <div style="display:flex;justify-content:space-between;align-items:center"><div class="side-footer-label">EUR / AED</div><button onclick="fetchLiveRate()" style="background:none;border:none;cursor:pointer;font-size:14px;padding:2px;opacity:.5;transition:opacity .2s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=.5" title="Rafraîchir le taux">🔄</button></div>
     <div class="side-footer-val" id="sideRate">4.3284</div>
     <div class="side-footer-sub">Taux de conversion</div>
     <div class="rate-live" id="rateLive" style="display:none"><span class="dot"></span>LIVE</div>
@@ -713,8 +713,9 @@ function buildDefault(){
 // LIVE RATE
 // ========================================
 async function fetchLiveRate(){
-  // Try multiple APIs for reliability
+  // Try multiple APIs - Wise first (real-time mid-market), then fallbacks
   const apis = [
+    {url:'https://api.wise.com/v1/rates?source=EUR&target=AED', parse:d=>d&&d[0]?d[0].rate:null},
     {url:'https://open.er-api.com/v6/latest/EUR', parse:d=>d&&d.rates?d.rates.AED:null},
     {url:'https://api.frankfurter.app/latest?from=EUR&to=AED', parse:d=>d&&d.rates?d.rates.AED:null},
     {url:'https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/eur.json', parse:d=>d&&d.eur?d.eur.aed:null},
@@ -741,7 +742,7 @@ async function fetchLiveRate(){
 }
 // Rate is fetched after Firebase auth loads data
 // Auto-refresh rate every 15 minutes
-setInterval(()=>{if(userId)fetchLiveRate();},15*60*1000);
+setInterval(()=>{if(userId)fetchLiveRate();},5*60*1000);
 
 // ========================================
 // HELPERS
