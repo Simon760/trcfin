@@ -713,11 +713,18 @@ function buildDefault(){
 // LIVE RATE
 // ========================================
 async function fetchLiveRate(){
-  // Try multiple APIs - Wise first (real-time mid-market), then fallbacks
+  // Try multiple APIs - best accuracy first
   const apis = [
-    {url:'https://api.wise.com/v1/rates?source=EUR&target=AED', parse:d=>d&&d[0]?d[0].rate:null},
+    // Wise public rate (mid-market, real-time)
+    {url:'https://api.wise.com/v3/comparisons/?sourceCurrency=EUR&targetCurrency=AED&sendAmount=1000&providerType=moneyTransferProvider', 
+     parse:d=>{try{return d&&d.sourceCurrency?d.routes[0]?.midRate:null}catch(e){return null}}},
+    // ExchangeRate-API (updates every hour)
+    {url:'https://v6.exchangerate-api.com/v6/latest/EUR', parse:d=>d&&d.conversion_rates?d.conversion_rates.AED:null},
+    // Open ER API
     {url:'https://open.er-api.com/v6/latest/EUR', parse:d=>d&&d.rates?d.rates.AED:null},
+    // Frankfurter (ECB data, daily)
     {url:'https://api.frankfurter.app/latest?from=EUR&to=AED', parse:d=>d&&d.rates?d.rates.AED:null},
+    // Fawaz Ahmed currency API
     {url:'https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/eur.json', parse:d=>d&&d.eur?d.eur.aed:null},
   ];
   for(const api of apis){
