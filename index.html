@@ -916,13 +916,13 @@ function renderActualTable(m){
       <td><span class="mono ${ec}">${beur>0?(ecart>=0?'+':'')+f$(ecart)+' €':'—'}</span></td></tr>`;
   });
   (m.extraActual||[]).forEach((r,i)=>{
-    const eur=r.eur>0?r.eur:toEur(r.aed,m.rate);
     const txns=r.txns||[];
     const hasTxns=txns.length>0;
+    const eurDisplay=hasTxns?txns.reduce((s,t)=>s+(t.eur||t.amount/(t.rate||m.rate)),0):(r.eur>0?r.eur:toEur(r.aed,m.rate));
     h+=`<tr><td><strong>${r.name}</strong>
         <button style="background:var(--green-bg);color:var(--green);border:1px solid var(--green-b);padding:1px 6px;font-size:11px;cursor:pointer;border-radius:4px;margin-left:4px;font-weight:700" onclick="openTxnModalExtra('${m.id}',${i})">+</button>${hasTxns?`<button style="background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-b);padding:1px 6px;font-size:10px;cursor:pointer;border-radius:4px;margin-left:2px" onclick="openTxnViewExtra('${m.id}',${i})">👁 ${txns.length}</button>`:''}</td>
       <td><input class="cell-input" type="number" value="${r.aed||''}" step="0.01" onchange="gm('${m.id}').extraActual[${i}].aed=parseFloat(this.value)||0;save();renderTracker()"></td>
-      <td><span class="mono cell-input eur">${f$(eur)}</span></td>
+      <td><span class="mono cell-input eur">${f$(eurDisplay)}</span></td>
       <td><span class="ratio neutral">—</span></td>
       <td><button class="btn-red" onclick="gm('${m.id}').extraActual.splice(${i},1);save();renderTracker()">✕</button></td></tr>`;
   });
@@ -996,6 +996,7 @@ function confirmTxn(){
     if(isEdit){r.txns[txnTarget.editIdx]=txnEntry;}
     else{r.txns.push(txnEntry);}
     r.aed=Math.round(r.txns.reduce((s,t)=>s+t.amount,0)*100)/100;
+    r.eur=Math.round(r.txns.reduce((s,t)=>s+(t.eur||t.amount/(t.rate||state.rate)),0)*100)/100;
   } else {
     const idx=txnTarget.posteIdx;
     if(!m.actual[idx].txns) m.actual[idx].txns=[];
@@ -1021,7 +1022,8 @@ function recalcActualFromTxns(monthId,posteIdx){
     m.actual[posteIdx].aed=Math.round(txns.reduce((s,t)=>s+t.amount,0)*100)/100;
     m.actual[posteIdx].eur=Math.round(txns.reduce((s,t)=>s+(t.eur||t.amount/(t.rate||state.rate)),0)*100)/100;
   } else {
-    m.actual[posteIdx].eur=Math.round(txns.reduce((s,t)=>s+t.amount,0)*100)/100;
+    // For EUR postes: sum the EUR values, not AED amounts
+    m.actual[posteIdx].eur=Math.round(txns.reduce((s,t)=>s+(t.eur||t.amount/(t.rate||state.rate)),0)*100)/100;
   }
 }
 
@@ -1165,6 +1167,7 @@ function deleteExtraTxn(monthId,extraIdx,txnIdx){
   r.txns.splice(txnIdx,1);
   const txns=r.txns||[];
   r.aed=txns.length>0?Math.round(txns.reduce((s,t)=>s+t.amount,0)*100)/100:0;
+  r.eur=txns.length>0?Math.round(txns.reduce((s,t)=>s+(t.eur||t.amount/(t.rate||state.rate)),0)*100)/100:0;
   save();
   openTxnViewExtra(monthId,extraIdx);
   renderTracker();
