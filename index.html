@@ -713,36 +713,39 @@ function buildDefault(){
 // LIVE RATE
 // ========================================
 async function fetchLiveRate(){
-  // Try multiple APIs - best accuracy first
+  // Google Finance first (real-time), then fallbacks
   const apis = [
-    // Wise public rate (mid-market, real-time)
-    {url:'https://api.wise.com/v3/comparisons/?sourceCurrency=EUR&targetCurrency=AED&sendAmount=1000&providerType=moneyTransferProvider', 
-     parse:d=>{try{return d&&d.sourceCurrency?d.routes[0]?.midRate:null}catch(e){return null}}},
-    // ExchangeRate-API (updates every hour)
-    {url:'https://v6.exchangerate-api.com/v6/latest/EUR', parse:d=>d&&d.conversion_rates?d.conversion_rates.AED:null},
-    // Open ER API
+    // Google Finance page scrape (real-time mid-market)
+    {url:'https://www.google.com/finance/quote/EUR-AED', isHtml:true,
+     parse:t=>{const m=t.match(/data-last-price="([\d.]+)"/);return m?parseFloat(m[1]):null;}},
+    // AllOrigins proxy → Wise API
+    {url:'https://api.allorigins.win/raw?url='+encodeURIComponent('https://api.wise.com/v1/rates?source=EUR&target=AED'),
+     parse:d=>{try{return Array.isArray(d)&&d[0]?d[0].rate:null}catch(e){return null}}},
+    // Open ER API (daily)
     {url:'https://open.er-api.com/v6/latest/EUR', parse:d=>d&&d.rates?d.rates.AED:null},
-    // Frankfurter (ECB data, daily)
+    // Frankfurter (ECB daily)
     {url:'https://api.frankfurter.app/latest?from=EUR&to=AED', parse:d=>d&&d.rates?d.rates.AED:null},
-    // Fawaz Ahmed currency API
+    // Fawaz Ahmed
     {url:'https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/eur.json', parse:d=>d&&d.eur?d.eur.aed:null},
   ];
   for(const api of apis){
     try{
       const r=await fetch(api.url);
-      if(!r.ok) continue;
-      const d=await r.json();
-      const rate=api.parse(d);
+      if(!r.ok){console.log('Rate ✗',api.url.split('/')[2],r.status);continue;}
+      let rate;
+      if(api.isHtml){rate=api.parse(await r.text());}
+      else{rate=api.parse(await r.json());}
+      console.log('Rate ✓',api.url.split('/')[2],'→',rate);
       if(rate&&rate>3&&rate<6){
         state.rate=rate;
-        saveSilent(); // Don't update lastUpdate timestamp for rate refresh
+        saveSilent();
         document.getElementById('sideRate').textContent=state.rate.toFixed(4);
         const ri=document.getElementById('rateIn');if(ri)ri.value=state.rate;
         document.getElementById('rateLive').style.display='flex';
         renderTracker();
         return true;
       }
-    }catch(e){continue;}
+    }catch(e){console.log('Rate ✗',api.url.split('/')[2],e.message);continue;}
   }
   console.log('All rate APIs failed, using saved rate');
   return false;
