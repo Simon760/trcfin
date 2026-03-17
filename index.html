@@ -713,28 +713,23 @@ function buildDefault(){
 // LIVE RATE
 // ========================================
 async function fetchLiveRate(){
-  // Google Finance first (real-time), then fallbacks
   const apis = [
-    // Google Finance page scrape (real-time mid-market)
-    {url:'https://www.google.com/finance/quote/EUR-AED', isHtml:true,
-     parse:t=>{const m=t.match(/data-last-price="([\d.]+)"/);return m?parseFloat(m[1]):null;}},
-    // AllOrigins proxy → Wise API
-    {url:'https://api.allorigins.win/raw?url='+encodeURIComponent('https://api.wise.com/v1/rates?source=EUR&target=AED'),
-     parse:d=>{try{return Array.isArray(d)&&d[0]?d[0].rate:null}catch(e){return null}}},
-    // Open ER API (daily)
+    // Wise via CORS proxy (real-time mid-market)
+    {url:'https://api.allorigins.win/get?url='+encodeURIComponent('https://api.wise.com/v1/rates?source=EUR&target=AED'),
+     parse:d=>{try{const arr=JSON.parse(d.contents);return Array.isArray(arr)&&arr[0]?arr[0].rate:null}catch(e){return null}}},
+    // Open ER API (daily, CORS-friendly)
     {url:'https://open.er-api.com/v6/latest/EUR', parse:d=>d&&d.rates?d.rates.AED:null},
-    // Frankfurter (ECB daily)
+    // Frankfurter (ECB daily, CORS-friendly)
     {url:'https://api.frankfurter.app/latest?from=EUR&to=AED', parse:d=>d&&d.rates?d.rates.AED:null},
-    // Fawaz Ahmed
+    // Fawaz Ahmed (CORS-friendly CDN)
     {url:'https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/eur.json', parse:d=>d&&d.eur?d.eur.aed:null},
   ];
   for(const api of apis){
     try{
       const r=await fetch(api.url);
       if(!r.ok){console.log('Rate ✗',api.url.split('/')[2],r.status);continue;}
-      let rate;
-      if(api.isHtml){rate=api.parse(await r.text());}
-      else{rate=api.parse(await r.json());}
+      const d=await r.json();
+      const rate=api.parse(d);
       console.log('Rate ✓',api.url.split('/')[2],'→',rate);
       if(rate&&rate>3&&rate<6){
         state.rate=rate;
