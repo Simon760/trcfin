@@ -841,19 +841,38 @@ function renderTracker(){
   const diff=earnEur-aE;
   const prevCompte = (m.soldeStart||0) + earnAed - aA;
 
+  // Preview revenue (not yet confirmed) for optimistic projection
+  let previewEur=0,previewAed=0,prevOpti=prevCompte;
+  if(synced){
+    ensureRevState();
+    const allEntries=state.revenus.months[m.id]||[];
+    previewEur=allEntries.filter(e=>e.status==='preview').reduce((s,e)=>s+(e.cashed||0),0);
+    previewAed=previewEur*state.rate;
+    prevOpti=prevCompte+previewAed;
+  }
+
   const earnCard=synced?
-    `<div class="solde-card"><div class="solde-icon">💵</div><div class="solde-info"><div class="solde-lbl">Revenus du mois</div>
-      <div class="solde-val">${f$(earnEur)} €</div><div style="font-size:11px;color:var(--t3);margin-top:2px;font-family:'IBM Plex Mono',monospace">${f0(earnAed)} AED</div></div></div>`:
+    `<div class="solde-card"><div class="solde-icon">💵</div><div class="solde-info"><div class="solde-lbl">Revenus confirmés</div>
+      <div class="solde-val">${f$(earnEur)} €</div><div style="font-size:11px;color:var(--t3);margin-top:2px;font-family:'IBM Plex Mono',monospace">${f0(earnAed)} AED</div>
+      ${previewEur>0?`<div style="font-size:10px;color:var(--blue);margin-top:4px">+ ${f$(previewEur)} € en prévision</div>`:''}</div></div>`:
     `<div class="solde-card"><div class="solde-icon">💵</div><div class="solde-info"><div class="solde-lbl">Revenus (EUR)</div>
       <input class="solde-input" type="number" value="${m.earn||0}" step="0.01" onchange="gm('${m.id}').earn=parseFloat(this.value)||0;save();renderTracker()"></div></div>`;
+
+  const prevCard=synced&&previewEur>0?
+    `<div class="solde-card"><div class="solde-icon">📊</div><div class="solde-info"><div class="solde-lbl">Prévisionnel (confirmé)</div>
+      <div class="solde-val ${prevCompte>=0?'diff-pos':'diff-neg'}">${f0(prevCompte)} AED</div></div></div>
+    <div class="solde-card" style="border-color:var(--blue-b);background:var(--blue-bg)"><div class="solde-icon">🔮</div><div class="solde-info"><div class="solde-lbl">Prévisionnel (optimiste)</div>
+      <div class="solde-val" style="color:var(--blue)">${f0(prevOpti)} AED</div>
+      <div style="font-size:10px;color:var(--t3);margin-top:2px">si ${f$(previewEur)} € confirmés</div></div></div>`:
+    `<div class="solde-card"><div class="solde-icon">📊</div><div class="solde-info"><div class="solde-lbl">Prévisionnel compte (AED)</div>
+      <div class="solde-val ${prevCompte>=0?'diff-pos':'diff-neg'}">${f0(prevCompte)} AED</div></div></div>`;
 
   document.getElementById('soldeRow').innerHTML=`
     <div class="solde-card"><div class="solde-icon">🏦</div><div class="solde-info"><div class="solde-lbl">Solde début (AED)</div>
       <input class="solde-input" type="number" value="${m.soldeStart||0}" step="0.01" onchange="gm('${m.id}').soldeStart=parseFloat(this.value)||0;save();renderTracker()"></div></div>
     <div class="solde-card"><div class="solde-icon">🏦</div><div class="solde-info"><div class="solde-lbl">Solde fin (AED)</div>
       <input class="solde-input" type="number" value="${m.soldeEnd||0}" step="0.01" onchange="gm('${m.id}').soldeEnd=parseFloat(this.value)||0;save();renderTracker()"></div></div>
-    <div class="solde-card"><div class="solde-icon">📊</div><div class="solde-info"><div class="solde-lbl">Prévisionnel compte (AED)</div>
-      <div class="solde-val ${prevCompte>=0?'diff-pos':'diff-neg'}">${f0(prevCompte)} AED</div></div></div>
+    ${prevCard}
     ${earnCard}
     <div class="solde-card"><div class="solde-icon">💸</div><div class="solde-info"><div class="solde-lbl">Dépenses du mois</div>
       <div class="solde-val">${f$(aE)} €</div></div></div>
@@ -1239,11 +1258,9 @@ function getRevMonth(id){ensureRevState();if(!state.revenus.months[id])state.rev
 
 // Sync revenus → tracker: compute EUR and AED from confirmed entries
 // For MARS 2026+ → auto from Revenus tab. Before → use legacy m.earn
-const SYNC_FROM_MONTH = 'MARS'; // Months from here use Revenus tab data
+const LEGACY_EARN_MONTHS = ['OCTOBRE','NOVEMBRE','DECEMBRE','JANVIER','FEVRIER']; // 2025 months use m.earn
 function isRevSynced(monthId){
-  const idx=MOIS_LIST.indexOf(monthId);
-  const syncIdx=MOIS_LIST.indexOf(SYNC_FROM_MONTH);
-  return idx>=syncIdx;
+  return !LEGACY_EARN_MONTHS.includes(monthId);
 }
 function getMonthRevEur(monthId){
   ensureRevState();
